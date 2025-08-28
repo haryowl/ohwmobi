@@ -5,6 +5,9 @@ const winston = require('winston');
 const { promisify } = require('util');
 const sleep = promisify(setTimeout);
 
+// Import the proper parser
+const { GalileoskyParser } = require('./backend/src/services/parser');
+
 // Configure logger
 const logger = winston.createLogger({
     level: 'info',
@@ -47,6 +50,9 @@ const config = {
     keepAliveProbes: 3,
     keepAliveTime: 60 // 60 seconds
 };
+
+// Initialize parser
+const parser = new GalileoskyParser();
 
 // Track active connections
 const activeConnections = new Map();
@@ -96,11 +102,39 @@ function handleConnection(socket) {
     socket.setTimeout(config.connectionTimeout);
 
     // Handle data
-    socket.on('data', (data) => {
+    socket.on('data', async (data) => {
         try {
             logger.info(`Received data from ${clientId}: ${data.toString('hex')}`);
-            const parsedPacket = parser.parse(data);
-            // Process data here
+            
+            // Parse the packet using the proper parser
+            const parsedPacket = await parser.parse(data);
+            
+            if (parsedPacket && parsedPacket.records && parsedPacket.records.length > 0) {
+                logger.info(`Successfully parsed ${parsedPacket.records.length} records from ${clientId}`);
+                
+                // Send success confirmation
+                socket.write(Buffer.from([0x02, 0x06, 0x00]));
+                logger.info('Success confirmation sent:', {
+                    hex: '020600',
+                    address: clientId,
+                    timestamp: new Date().toISOString()
+                });
+                
+                // Process each record
+                for (const record of parsedPacket.records) {
+                    logger.info(`Processed record:`, {
+                        deviceId: record.deviceId || record.imei,
+                        timestamp: record.timestamp,
+                        latitude: record.latitude,
+                        longitude: record.longitude,
+                        speed: record.speed
+                    });
+                }
+            } else {
+                logger.warn(`No records found in parsed packet from ${clientId}`);
+                // Send success confirmation even if no records (packet was valid)
+                socket.write(Buffer.from([0x02, 0x06, 0x00]));
+            }
         } catch (error) {
             logger.error('Error processing packet:', {
                 error: error.message,
