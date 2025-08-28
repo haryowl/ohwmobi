@@ -1619,6 +1619,7 @@ function startHTTPServer() {
         const pathname = parsedUrl.pathname;
         
         logger.info(`${req.method} ${pathname}`);
+        console.log(`🔍 Debug - Method: ${req.method}, Pathname: "${pathname}", URL: "${req.url}"`);
         
         // Handle peer sync requests
         if (pathname.startsWith('/peer/')) {
@@ -1643,7 +1644,7 @@ function startHTTPServer() {
         }
         
         // Special handling for unified mobile interface
-        if (pathname === '/unified' || pathname === '/unified-mobile-interface.html') {
+        if (pathname === '/unified' || pathname === '//unified' || pathname === '/unified-mobile-interface.html') {
             filePath = './unified-mobile-interface.html';
             console.log('📱 Served unified mobile interface');
             console.log('📱 File path:', filePath);
