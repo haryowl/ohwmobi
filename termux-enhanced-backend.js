@@ -1450,6 +1450,17 @@ function handleAPIRequest(req, res) {
             }));
             res.writeHead(200);
             res.end(JSON.stringify(deviceList));
+        } else if (pathname === '/api/network-info') {
+            const networkInfo = {
+                localIP: ipAddress,
+                hostname: require('os').hostname(),
+                platform: process.platform,
+                nodeVersion: process.version,
+                uptime: process.uptime(),
+                timestamp: new Date().toISOString()
+            };
+            res.writeHead(200);
+            res.end(JSON.stringify(networkInfo));
         } else if (pathname.match(/^\/api\/data\/(.+)\/tracking$/)) {
             const deviceId = pathname.match(/^\/api\/data\/(.+)\/tracking$/)[1];
             const startDate = new Date(parsedUrl.query.startDate);
