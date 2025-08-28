@@ -1646,6 +1646,9 @@ function startHTTPServer() {
         if (pathname === '/unified' || pathname === '/unified-mobile-interface.html') {
             filePath = './unified-mobile-interface.html';
             console.log('📱 Served unified mobile interface');
+            console.log('📱 File path:', filePath);
+            console.log('📱 Request pathname:', pathname);
+            console.log('📱 File exists:', fs.existsSync(filePath));
         }
         
         // Security: prevent directory traversal
