@@ -76,9 +76,9 @@ if [ -d "galileosky-parser" ]; then
     rm -rf galileosky-parser
 fi
 
-if [ -d "ohw" ]; then
-    print_warning "Removing old ohw directory..."
-    rm -rf ohw
+if [ -d "ohwmob" ]; then
+    print_warning "Removing old ohwmob directory..."
+    rm -rf ohwmob
 fi
 
 # Remove old management scripts
@@ -88,7 +88,7 @@ rm -f ~/ohw-*.sh
 echo ""
 print_info "Step 6: Downloading OHW Parser..."
 git clone https://github.com/haryowl/ohwmob.git
-cd ohw
+cd ohwmob
 
 echo ""
 print_info "Step 7: Installing dependencies with fallback..."
@@ -146,8 +146,8 @@ cat > ~/ohw-start.sh << 'EOF'
 echo "🚀 Starting OHW Parser..."
 
 # Find the project directory
-if [ -d "$HOME/ohw" ]; then
-    cd "$HOME/ohw"
+if [ -d "$HOME/ohwmob" ]; then
+    cd "$HOME/ohwmob"
 else
     echo "❌ Project directory not found"
     echo "Please run the installation script first"
@@ -292,7 +292,7 @@ echo "🔄 Updating OHW Parser..."
 ~/ohw-stop.sh
 
 # Update repository
-cd ~/ohw
+cd ~/ohwmob
 git pull origin main
 
 # Reinstall dependencies
