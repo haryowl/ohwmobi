@@ -661,6 +661,98 @@
         </div>
     </div>
 
+    <!-- Data SM Tab -->
+    <div id="data-sm" class="tab-content">
+        <div class="section">
+            <h3>📊 Data SM Export</h3>
+            <div class="controls">
+                <button class="btn btn-primary" onclick="exportDataSM()">📤 Export Data SM</button>
+                <button class="btn btn-success" onclick="setupAutoExport()">⏰ Setup Auto Export</button>
+                <button class="btn btn-info" onclick="loadDataSMHistory()">📋 Export History</button>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h3>📊 Export Options</h3>
+            <div class="export-options">
+                <div class="option-group">
+                    <label>📅 Date Range:</label>
+                    <input type="datetime-local" id="smStartDate" class="form-control">
+                    <input type="datetime-local" id="smEndDate" class="form-control">
+                </div>
+                <div class="option-group">
+                    <label>📱 Device Filter:</label>
+                    <select id="smDeviceFilter" class="form-control">
+                        <option value="all">All Devices</option>
+                    </select>
+                </div>
+                <div class="option-group">
+                    <label>📁 File Template:</label>
+                    <input type="text" id="smFileTemplate" class="form-control" placeholder="GroupName_DeviceName_YYYY-MM-DD.pfsl" value="GroupName_DeviceName_YYYY-MM-DD.pfsl">
+                </div>
+                <div class="option-group">
+                    <label>⏰ Auto Export:</label>
+                    <select id="smAutoExport" class="form-control">
+                        <option value="disabled">Disabled</option>
+                        <option value="daily">Daily at Midnight</option>
+                        <option value="weekly">Weekly on Sunday</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h3>📋 Data SM Preview</h3>
+            <div id="dataSMPreview" class="data-table">
+                <div class="no-data">No data to preview. Set filters and click Export to see data.</div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h3>📝 Data SM Log</h3>
+            <div id="dataSMLog" class="log">
+                <div class="log-entry info">Data SM initialized...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Device Management Tab -->
+    <div id="device-management" class="tab-content">
+        <div class="section">
+            <h3>📱 Device Management</h3>
+            <div class="controls">
+                <button class="btn btn-primary" onclick="loadDevices()">🔄 Refresh Devices</button>
+                <button class="btn btn-success" onclick="saveDeviceChanges()">💾 Save Changes</button>
+                <button class="btn btn-info" onclick="exportDeviceConfig()">📤 Export Config</button>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h3>📊 Device Groups</h3>
+            <div class="controls">
+                <input type="text" id="newGroupName" class="form-control" placeholder="New Group Name" style="width: 200px;">
+                <button class="btn btn-primary" onclick="addGroup()">➕ Add Group</button>
+            </div>
+            <div id="deviceGroups" class="data-table" style="margin-top: 15px;">
+                <div class="no-data">Loading device groups...</div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h3>📱 Device List</h3>
+            <div id="deviceManagementList" class="data-table">
+                <div class="no-data">Loading devices...</div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h3>📝 Device Management Log</h3>
+            <div id="deviceManagementLog" class="log">
+                <div class="log-entry info">Device management initialized...</div>
+            </div>
+        </div>
+    </div>
+
     <!-- Peer Sync Tab -->
     <div id="peer-sync" class="tab-content">
             <div class="section">
