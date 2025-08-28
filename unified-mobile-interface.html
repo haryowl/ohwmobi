@@ -418,6 +418,76 @@
             border: 1px solid #ffeaa7;
         }
 
+        .data-table {
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid #e9ecef;
+        }
+
+        .data-table table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .data-table th,
+        .data-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .data-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #495057;
+            font-size: 0.85em;
+        }
+
+        .data-table td {
+            font-size: 0.9em;
+            color: #2c3e50;
+        }
+
+        .data-table tr:hover {
+            background: #f8f9fa;
+        }
+
+        .export-options {
+            display: grid;
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .option-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .option-group label {
+            font-weight: 500;
+            color: #2c3e50;
+            font-size: 0.9em;
+        }
+
+        .form-control {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 0.9em;
+        }
+
+        .btn-info {
+            background: #17a2b8;
+            color: white;
+        }
+
+        .btn-info:hover {
+            background: #138496;
+            transform: translateY(-2px);
+        }
+
         @media (max-width: 768px) {
             body {
                 padding: 5px;
@@ -931,6 +1001,7 @@
             
             peers.push(peer);
             savePeers();
+            updatePeerList();
             log('info', `Adding peer: ${url}`);
             testPeerConnection(peer);
         }
@@ -956,6 +1027,7 @@
             }
             
             savePeers();
+            updatePeerList();
         }
 
         async function testConnection() {
@@ -1139,6 +1211,34 @@
                 peers = JSON.parse(saved);
                 log('info', `Loaded ${peers.length} saved peers`);
             }
+        }
+
+        function updatePeerList() {
+            const deviceList = document.getElementById('deviceList');
+            if (peers.length === 0) {
+                deviceList.innerHTML = '<div class="no-data">No peers configured</div>';
+                return;
+            }
+            
+            let html = '';
+            peers.forEach(peer => {
+                const statusClass = peer.status === 'online' ? 'connected' : 'disconnected';
+                const lastSync = peer.lastSync ? new Date(peer.lastSync).toLocaleString() : 'Never';
+                
+                html += `
+                    <div class="device-item ${statusClass}">
+                        <div>
+                            <strong>${peer.name}</strong><br>
+                            <small>${peer.url}</small>
+                        </div>
+                        <div>
+                            <span class="status-dot ${statusClass}"></span>
+                            <small>Last sync: ${lastSync}</small>
+                        </div>
+                    </div>
+                `;
+            });
+            deviceList.innerHTML = html;
         }
 
         // Data Management functionality
@@ -1530,14 +1630,34 @@
             window.URL.revokeObjectURL(url);
         }
 
-        // Override showTab function to load data for specific tabs
-        const originalShowTab = showTab;
+        // Enhanced showTab function to load data for specific tabs
         function showTab(tabName) {
-            originalShowTab(tabName);
-            
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+
+            // Show selected tab
+            document.getElementById(tabName).classList.add('active');
+            event.target.classList.add('active');
+
+            // Refresh map if needed
+            if (tabName === 'tracking' && map) {
+                setTimeout(() => map.invalidateSize(), 100);
+            }
+
             // Load data for specific tabs
             if (tabName === 'tracking-history') {
                 loadTrackingHistory();
+            } else if (tabName === 'data-management') {
+                loadStats();
+                loadStorageInfo();
+            } else if (tabName === 'peer-sync') {
+                // Refresh peer list
+                updatePeerList();
             }
         }
     </script>
