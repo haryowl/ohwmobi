@@ -1642,6 +1642,12 @@ function startHTTPServer() {
             console.log('📱 Served mobile peer sync UI');
         }
         
+        // Special handling for unified mobile interface
+        if (pathname === '/unified' || pathname === '/unified-mobile-interface.html') {
+            filePath = './unified-mobile-interface.html';
+            console.log('📱 Served unified mobile interface');
+        }
+        
         // Security: prevent directory traversal
         if (filePath.includes('..')) {
             res.writeHead(403);
@@ -1679,6 +1685,7 @@ function startHTTPServer() {
         logger.info(`API available at: http://${ipAddress}:${config.httpPort}/api/`);
         logger.info(`Socket.IO available at: http://${ipAddress}:${config.httpPort}`);
         logger.info(`Mobile Peer Sync UI: http://${ipAddress}:${config.httpPort}/mobile-peer-sync-ui.html`);
+        logger.info(`Unified Mobile Interface: http://${ipAddress}:${config.httpPort}/unified`);
         
         // Display server information
         console.log('');
@@ -1686,6 +1693,7 @@ function startHTTPServer() {
         console.log('================================');
         console.log(`📱 Mobile Interface: http://${ipAddress}:${config.httpPort}`);
         console.log(`🌐 Peer Sync Interface: http://${ipAddress}:${config.httpPort}/mobile-peer-sync-ui.html`);
+        console.log(`🎯 Unified Interface: http://${ipAddress}:${config.httpPort}/unified`);
         console.log(`📡 TCP Server: ${ipAddress}:${config.tcpPort}`);
         console.log(`💾 Data Directory: ${dataDir}`);
         console.log(`📋 Logs Directory: ${logsDir}`);

@@ -100,6 +100,7 @@ node termux-enhanced-backend.js
 
 ### Accessing the Interface
 - **Main Interface**: http://localhost:3001
+- **🎯 Unified Interface**: http://localhost:3001/unified
 - **Mobile Interface**: http://localhost:3001/mobile
 - **Peer Sync**: http://localhost:3001/peer-sync
 - **Data Management**: http://localhost:3001/data-management

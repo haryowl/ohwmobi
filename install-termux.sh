@@ -177,6 +177,7 @@ echo $! > "$HOME/ohw-server.pid"
 
 echo "✅ Server started successfully!"
 echo "📱 Access the interface at: http://localhost:3001"
+echo "🎯 Unified Interface: http://localhost:3001/unified"
 echo "📱 Mobile interface: http://localhost:3001/mobile"
 echo "🔄 Peer sync: http://localhost:3001/peer-sync"
 echo "📊 Data management: http://localhost:3001/data-management"
