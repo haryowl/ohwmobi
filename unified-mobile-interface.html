@@ -456,6 +456,8 @@
 
         <div class="nav-tabs">
             <button class="nav-tab active" onclick="showTab('tracking')">📍 Tracking</button>
+            <button class="nav-tab" onclick="showTab('tracking-history')">📈 Tracking History</button>
+            <button class="nav-tab" onclick="showTab('data-export')">📤 Data Export</button>
             <button class="nav-tab" onclick="showTab('peer-sync')">🔄 Peer Sync</button>
             <button class="nav-tab" onclick="showTab('data-management')">📊 Data Management</button>
         </div>
@@ -485,10 +487,110 @@
                 <h3>Device Locations</h3>
                 <div id="map"></div>
             </div>
-        </div>
+            </div>
 
-        <!-- Peer Sync Tab -->
-        <div id="peer-sync" class="tab-content">
+    <!-- Tracking History Tab -->
+    <div id="tracking-history" class="tab-content">
+        <div class="section">
+            <h3>📈 Tracking History</h3>
+            <div class="controls">
+                <button class="btn btn-primary" onclick="loadTrackingHistory()">🔄 Refresh History</button>
+                <button class="btn btn-success" onclick="exportTrackingHistory()">📤 Export History</button>
+                <button class="btn btn-warning" onclick="clearTrackingHistory()">🗑️ Clear History</button>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h3>📊 History Statistics</h3>
+            <div id="historyStats" class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value" id="totalRecords">0</div>
+                    <div class="stat-label">Total Records</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="totalDevices">0</div>
+                    <div class="stat-label">Total Devices</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="dateRange">-</div>
+                    <div class="stat-label">Date Range</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="avgSpeed">0</div>
+                    <div class="stat-label">Avg Speed (km/h)</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h3>📋 Recent Records</h3>
+            <div id="trackingHistoryTable" class="data-table">
+                <div class="no-data">Loading tracking history...</div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h3>📝 History Log</h3>
+            <div id="historyLog" class="log">
+                <div class="log-entry info">Tracking history initialized...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Data Export Tab -->
+    <div id="data-export" class="tab-content">
+        <div class="section">
+            <h3>📤 Data Export</h3>
+            <div class="controls">
+                <button class="btn btn-primary" onclick="exportAllData()">📤 Export All Data</button>
+                <button class="btn btn-success" onclick="exportDeviceData()">📱 Export Device Data</button>
+                <button class="btn btn-info" onclick="exportTrackingData()">📍 Export Tracking Data</button>
+                <button class="btn btn-warning" onclick="exportSettings()">⚙️ Export Settings</button>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h3>📊 Export Options</h3>
+            <div class="export-options">
+                <div class="option-group">
+                    <label>📅 Date Range:</label>
+                    <input type="date" id="exportStartDate" class="form-control">
+                    <input type="date" id="exportEndDate" class="form-control">
+                </div>
+                <div class="option-group">
+                    <label>📱 Device Filter:</label>
+                    <select id="exportDeviceFilter" class="form-control">
+                        <option value="all">All Devices</option>
+                    </select>
+                </div>
+                <div class="option-group">
+                    <label>📄 Format:</label>
+                    <select id="exportFormat" class="form-control">
+                        <option value="json">JSON</option>
+                        <option value="csv">CSV</option>
+                        <option value="excel">Excel</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h3>📋 Export History</h3>
+            <div id="exportHistory" class="data-table">
+                <div class="no-data">No exports yet...</div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h3>📝 Export Log</h3>
+            <div id="exportLog" class="log">
+                <div class="log-entry info">Data export initialized...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Peer Sync Tab -->
+    <div id="peer-sync" class="tab-content">
             <div class="section">
                 <h3>🔄 Peer Configuration</h3>
                 <div class="input-group">
@@ -1211,6 +1313,233 @@
                 socket.close();
             }
         });
+
+        // Tracking History functionality
+        async function loadTrackingHistory() {
+            try {
+                log('info', 'Loading tracking history...');
+                const response = await fetch(`${config.apiUrl}/api/data/latest?limit=100`);
+                const data = await response.json();
+                
+                updateHistoryStats(data);
+                updateHistoryTable(data);
+                log('success', `Loaded ${data.length} tracking records`);
+            } catch (error) {
+                log('error', `Error loading tracking history: ${error.message}`);
+            }
+        }
+
+        function updateHistoryStats(data) {
+            const totalRecords = data.length;
+            const totalDevices = new Set(data.map(record => record.deviceId)).size;
+            const avgSpeed = data.length > 0 ? 
+                (data.reduce((sum, record) => sum + (record.speed || 0), 0) / data.length).toFixed(1) : 0;
+            
+            const dates = data.map(record => new Date(record.timestamp));
+            const dateRange = dates.length > 0 ? 
+                `${new Date(Math.min(...dates)).toLocaleDateString()} - ${new Date(Math.max(...dates)).toLocaleDateString()}` : '-';
+            
+            document.getElementById('totalRecords').textContent = totalRecords;
+            document.getElementById('totalDevices').textContent = totalDevices;
+            document.getElementById('dateRange').textContent = dateRange;
+            document.getElementById('avgSpeed').textContent = avgSpeed;
+        }
+
+        function updateHistoryTable(data) {
+            const tableDiv = document.getElementById('trackingHistoryTable');
+            if (data.length === 0) {
+                tableDiv.innerHTML = '<div class="no-data">No tracking records found</div>';
+                return;
+            }
+            
+            const table = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Device</th>
+                            <th>Time</th>
+                            <th>Location</th>
+                            <th>Speed</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${data.slice(0, 20).map(record => `
+                            <tr>
+                                <td>${record.deviceId || record.imei || 'Unknown'}</td>
+                                <td>${new Date(record.timestamp).toLocaleString()}</td>
+                                <td>${record.latitude ? `${record.latitude.toFixed(6)}, ${record.longitude.toFixed(6)}` : 'N/A'}</td>
+                                <td>${record.speed ? `${record.speed.toFixed(1)} km/h` : 'N/A'}</td>
+                                <td>${record.status || 'Active'}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+            tableDiv.innerHTML = table;
+        }
+
+        async function exportTrackingHistory() {
+            try {
+                log('info', 'Exporting tracking history...');
+                const response = await fetch(`${config.apiUrl}/api/data/latest?limit=1000`);
+                const data = await response.json();
+                
+                const csv = convertToCSV(data);
+                downloadFile(csv, 'tracking-history.csv', 'text/csv');
+                log('success', 'Tracking history exported successfully');
+            } catch (error) {
+                log('error', `Error exporting tracking history: ${error.message}`);
+            }
+        }
+
+        async function clearTrackingHistory() {
+            if (confirm('Are you sure you want to clear all tracking history? This action cannot be undone.')) {
+                try {
+                    log('info', 'Clearing tracking history...');
+                    const response = await fetch(`${config.apiUrl}/api/data/clear`, { method: 'POST' });
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        log('success', 'Tracking history cleared successfully');
+                        loadTrackingHistory();
+                    } else {
+                        log('error', 'Failed to clear tracking history');
+                    }
+                } catch (error) {
+                    log('error', `Error clearing tracking history: ${error.message}`);
+                }
+            }
+        }
+
+        // Data Export functionality
+        async function exportAllData() {
+            try {
+                log('info', 'Exporting all data...');
+                const response = await fetch(`${config.apiUrl}/api/data/latest?limit=10000`);
+                const data = await response.json();
+                
+                const format = document.getElementById('exportFormat').value;
+                if (format === 'csv') {
+                    const csv = convertToCSV(data);
+                    downloadFile(csv, 'all-data.csv', 'text/csv');
+                } else {
+                    downloadFile(JSON.stringify(data, null, 2), 'all-data.json', 'application/json');
+                }
+                log('success', 'All data exported successfully');
+            } catch (error) {
+                log('error', `Error exporting all data: ${error.message}`);
+            }
+        }
+
+        async function exportDeviceData() {
+            try {
+                log('info', 'Exporting device data...');
+                const response = await fetch(`${config.apiUrl}/api/devices`);
+                const data = await response.json();
+                
+                const format = document.getElementById('exportFormat').value;
+                if (format === 'csv') {
+                    const csv = convertToCSV(data);
+                    downloadFile(csv, 'device-data.csv', 'text/csv');
+                } else {
+                    downloadFile(JSON.stringify(data, null, 2), 'device-data.json', 'application/json');
+                }
+                log('success', 'Device data exported successfully');
+            } catch (error) {
+                log('error', `Error exporting device data: ${error.message}`);
+            }
+        }
+
+        async function exportTrackingData() {
+            try {
+                log('info', 'Exporting tracking data...');
+                const startDate = document.getElementById('exportStartDate').value;
+                const endDate = document.getElementById('exportEndDate').value;
+                const deviceFilter = document.getElementById('exportDeviceFilter').value;
+                
+                let url = `${config.apiUrl}/api/data/latest?limit=10000`;
+                if (startDate && endDate) {
+                    url += `&startDate=${startDate}&endDate=${endDate}`;
+                }
+                
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                const filteredData = deviceFilter === 'all' ? data : 
+                    data.filter(record => record.deviceId === deviceFilter);
+                
+                const format = document.getElementById('exportFormat').value;
+                if (format === 'csv') {
+                    const csv = convertToCSV(filteredData);
+                    downloadFile(csv, 'tracking-data.csv', 'text/csv');
+                } else {
+                    downloadFile(JSON.stringify(filteredData, null, 2), 'tracking-data.json', 'application/json');
+                }
+                log('success', 'Tracking data exported successfully');
+            } catch (error) {
+                log('error', `Error exporting tracking data: ${error.message}`);
+            }
+        }
+
+        async function exportSettings() {
+            try {
+                log('info', 'Exporting settings...');
+                const settings = {
+                    peers: peers,
+                    config: config,
+                    exportTime: new Date().toISOString()
+                };
+                
+                downloadFile(JSON.stringify(settings, null, 2), 'settings.json', 'application/json');
+                log('success', 'Settings exported successfully');
+            } catch (error) {
+                log('error', `Error exporting settings: ${error.message}`);
+            }
+        }
+
+        function convertToCSV(data) {
+            if (data.length === 0) return '';
+            
+            const headers = Object.keys(data[0]);
+            const csvRows = [headers.join(',')];
+            
+            for (const row of data) {
+                const values = headers.map(header => {
+                    const value = row[header];
+                    if (typeof value === 'object') {
+                        return JSON.stringify(value);
+                    }
+                    return value || '';
+                });
+                csvRows.push(values.join(','));
+            }
+            
+            return csvRows.join('\n');
+        }
+
+        function downloadFile(content, filename, contentType) {
+            const blob = new Blob([content], { type: contentType });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        }
+
+        // Override showTab function to load data for specific tabs
+        const originalShowTab = showTab;
+        function showTab(tabName) {
+            originalShowTab(tabName);
+            
+            // Load data for specific tabs
+            if (tabName === 'tracking-history') {
+                loadTrackingHistory();
+            }
+        }
     </script>
 </body>
 </html>

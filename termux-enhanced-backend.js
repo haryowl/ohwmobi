@@ -1650,6 +1650,8 @@ function startHTTPServer() {
             console.log('📱 File path:', filePath);
             console.log('📱 Request pathname:', pathname);
             console.log('📱 File exists:', fs.existsSync(filePath));
+            serveStaticFile(req, res, filePath);
+            return;
         }
         
         // Security: prevent directory traversal
