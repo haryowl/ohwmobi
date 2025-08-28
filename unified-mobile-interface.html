@@ -710,15 +710,16 @@
 
     <!-- Data Export Tab -->
     <div id="data-export" class="tab-content">
-        <div class="section">
-            <h3>📤 Data Export</h3>
-            <div class="controls">
-                <button class="btn btn-primary" onclick="exportAllData()">📤 Export All Data</button>
-                <button class="btn btn-success" onclick="exportDeviceData()">📱 Export Device Data</button>
-                <button class="btn btn-info" onclick="exportTrackingData()">📍 Export Tracking Data</button>
-                <button class="btn btn-warning" onclick="exportSettings()">⚙️ Export Settings</button>
-            </div>
-        </div>
+                 <div class="section">
+             <h3>📤 Data Export</h3>
+             <div class="controls">
+                 <button class="btn btn-primary" onclick="exportAllData()">📤 Export All Data</button>
+                 <button class="btn btn-success" onclick="exportDeviceData()">📱 Export Device Data</button>
+                 <button class="btn btn-info" onclick="exportTrackingData()">📍 Export Tracking Data</button>
+                 <button class="btn btn-warning" onclick="exportSettings()">⚙️ Export Settings</button>
+                 <button class="btn btn-info" onclick="loadExportDevices()">🔄 Refresh Devices</button>
+             </div>
+         </div>
         
         <div class="section">
             <h3>📊 Export Options</h3>
@@ -762,14 +763,15 @@
 
     <!-- Data SM Tab -->
     <div id="data-sm" class="tab-content">
-        <div class="section">
-            <h3>📊 Data SM Export</h3>
-            <div class="controls">
-                <button class="btn btn-primary" onclick="exportDataSM()">📤 Export Data SM</button>
-                <button class="btn btn-success" onclick="setupAutoExport()">⏰ Setup Auto Export</button>
-                <button class="btn btn-info" onclick="loadDataSMHistory()">📋 Export History</button>
-            </div>
-        </div>
+                 <div class="section">
+             <h3>📊 Data SM Export</h3>
+             <div class="controls">
+                 <button class="btn btn-primary" onclick="exportDataSM()">📤 Export Data SM</button>
+                 <button class="btn btn-success" onclick="setupAutoExport()">⏰ Setup Auto Export</button>
+                 <button class="btn btn-info" onclick="loadDataSMHistory()">📋 Export History</button>
+                 <button class="btn btn-info" onclick="loadExportDevices()">🔄 Refresh Devices</button>
+             </div>
+         </div>
         
         <div class="section">
             <h3>📊 Export Options</h3>
@@ -969,31 +971,34 @@
         // Initialize when page loads
         document.addEventListener('DOMContentLoaded', init);
 
-                 function init() {
-             initializeMap();
-             loadPeers();
-             connectSocket();
-             loadStats();
-             loadStorageInfo();
-             startStatusCheck();
-             
-             // Load device configurations
-             const savedConfigs = localStorage.getItem('deviceConfigs');
-             if (savedConfigs) {
-                 deviceConfigs = JSON.parse(savedConfigs);
-             }
-             
-             const savedGroups = localStorage.getItem('deviceGroups');
-             if (savedGroups) {
-                 deviceGroups = JSON.parse(savedGroups);
-             }
-             
-             // Start auto export timer if configured
-             startAutoExportTimer();
-             
-             // Check offline map availability
-             checkOfflineMapAvailability();
-         }
+                         function init() {
+            initializeMap();
+            loadPeers();
+            connectSocket();
+            loadStats();
+            loadStorageInfo();
+            startStatusCheck();
+            
+            // Load device configurations
+            const savedConfigs = localStorage.getItem('deviceConfigs');
+            if (savedConfigs) {
+                deviceConfigs = JSON.parse(savedConfigs);
+            }
+            
+            const savedGroups = localStorage.getItem('deviceGroups');
+            if (savedGroups) {
+                deviceGroups = JSON.parse(savedGroups);
+            }
+            
+            // Load devices for export tabs
+            loadExportDevices();
+            
+            // Start auto export timer if configured
+            startAutoExportTimer();
+            
+            // Check offline map availability
+            checkOfflineMapAvailability();
+        }
 
                  function initializeMap() {
              map = L.map('map').setView([0, 0], 2);
@@ -1813,6 +1818,38 @@
             }
         }
 
+        // Load devices for export tabs
+        async function loadExportDevices() {
+            try {
+                const response = await fetch(`${config.apiUrl}/api/devices`);
+                const devices = await response.json();
+                
+                // Populate device filter for Data Export tab
+                const exportDeviceFilter = document.getElementById('exportDeviceFilter');
+                if (exportDeviceFilter) {
+                    exportDeviceFilter.innerHTML = '<option value="all">All Devices</option>';
+                    devices.forEach(device => {
+                        const deviceName = deviceConfigs[device.deviceId || device.imei]?.name || device.deviceId || device.imei;
+                        exportDeviceFilter.innerHTML += `<option value="${device.deviceId || device.imei}">${deviceName}</option>`;
+                    });
+                }
+                
+                // Populate device filter for Data SM tab
+                const smDeviceFilter = document.getElementById('smDeviceFilter');
+                if (smDeviceFilter) {
+                    smDeviceFilter.innerHTML = '<option value="all">All Devices</option>';
+                    devices.forEach(device => {
+                        const deviceName = deviceConfigs[device.deviceId || device.imei]?.name || device.deviceId || device.imei;
+                        smDeviceFilter.innerHTML += `<option value="${device.deviceId || device.imei}">${deviceName}</option>`;
+                    });
+                }
+                
+                log('success', `Loaded ${devices.length} devices for export tabs`);
+            } catch (error) {
+                log('error', `Error loading devices for export: ${error.message}`);
+            }
+        }
+
         // Data Export functionality
         async function exportAllData() {
             try {
@@ -1963,7 +2000,10 @@
                  loadDevices();
                  loadDeviceGroups();
                  loadServerInfo();
-             } else if (tabName === 'data-sm') {
+             } else if (tabName === 'data-export') {
+                loadExportDevices();
+            } else if (tabName === 'data-sm') {
+                loadExportDevices();
                 loadDataSMHistory();
             }
         }
