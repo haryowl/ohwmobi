@@ -750,6 +750,8 @@
         let socket = null;
         let peers = [];
         let syncInProgress = false;
+        let deviceGroups = [];
+        let deviceConfigs = {};
 
         // Configuration
         const config = {
@@ -772,6 +774,20 @@
             loadStats();
             loadStorageInfo();
             startStatusCheck();
+            
+            // Load device configurations
+            const savedConfigs = localStorage.getItem('deviceConfigs');
+            if (savedConfigs) {
+                deviceConfigs = JSON.parse(savedConfigs);
+            }
+            
+            const savedGroups = localStorage.getItem('deviceGroups');
+            if (savedGroups) {
+                deviceGroups = JSON.parse(savedGroups);
+            }
+            
+            // Start auto export timer if configured
+            startAutoExportTimer();
         }
 
         function initializeMap() {
@@ -781,35 +797,7 @@
             }).addTo(map);
         }
 
-        function showTab(tabName) {
-            // Hide all tabs
-            document.querySelectorAll('.tab-content').forEach(tab => {
-                tab.classList.remove('active');
-            });
-            document.querySelectorAll('.nav-tab').forEach(tab => {
-                tab.classList.remove('active');
-            });
 
-            // Show selected tab
-            document.getElementById(tabName).classList.add('active');
-            event.target.classList.add('active');
-
-            // Refresh map if needed
-            if (tabName === 'tracking' && map) {
-                setTimeout(() => map.invalidateSize(), 100);
-            }
-
-            // Load data for specific tabs
-            if (tabName === 'tracking-history') {
-                loadTrackingHistory();
-            } else if (tabName === 'data-management') {
-                loadStats();
-                loadStorageInfo();
-            } else if (tabName === 'peer-sync') {
-                // Refresh peer list
-                updatePeerList();
-            }
-        }
 
         // Tracking functionality
         function connectSocket() {
@@ -1671,7 +1659,293 @@
             } else if (tabName === 'peer-sync') {
                 // Refresh peer list
                 updatePeerList();
+            } else if (tabName === 'device-management') {
+                loadDevices();
+                loadDeviceGroups();
+            } else if (tabName === 'data-sm') {
+                loadDataSMHistory();
             }
+        }
+
+        // Device Management Functions
+        async function loadDevices() {
+            try {
+                log('info', 'Loading devices...', 'deviceManagementLog');
+                const response = await fetch('/api/devices');
+                const devices = await response.json();
+                
+                const container = document.getElementById('deviceManagementList');
+                if (devices.length === 0) {
+                    container.innerHTML = '<div class="no-data">No devices found</div>';
+                    return;
+                }
+                
+                let html = '<table class="data-table"><thead><tr><th>IMEI</th><th>Name</th><th>Group</th><th>Actions</th></tr></thead><tbody>';
+                
+                devices.forEach(device => {
+                    const config = deviceConfigs[device.imei] || {};
+                    html += `
+                        <tr>
+                            <td>${device.imei}</td>
+                            <td><input type="text" value="${config.name || ''}" onchange="updateDeviceConfig('${device.imei}', 'name', this.value)" placeholder="Device Name"></td>
+                            <td>
+                                <select onchange="updateDeviceConfig('${device.imei}', 'group', this.value)">
+                                    <option value="">No Group</option>
+                                    ${deviceGroups.map(group => `<option value="${group}" ${config.group === group ? 'selected' : ''}>${group}</option>`).join('')}
+                                </select>
+                            </td>
+                            <td>
+                                <button onclick="viewDeviceDetails('${device.imei}')" class="btn btn-sm btn-info">View</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+                
+                html += '</tbody></table>';
+                container.innerHTML = html;
+                log('success', `Loaded ${devices.length} devices`, 'deviceManagementLog');
+            } catch (error) {
+                log('error', `Error loading devices: ${error.message}`, 'deviceManagementLog');
+            }
+        }
+
+        function loadDeviceGroups() {
+            const container = document.getElementById('deviceGroups');
+            if (deviceGroups.length === 0) {
+                container.innerHTML = '<div class="no-data">No device groups created</div>';
+                return;
+            }
+            
+            let html = '<table class="data-table"><thead><tr><th>Group Name</th><th>Device Count</th><th>Actions</th></tr></thead><tbody>';
+            
+            deviceGroups.forEach(group => {
+                const deviceCount = Object.values(deviceConfigs).filter(config => config.group === group).length;
+                html += `
+                    <tr>
+                        <td>${group}</td>
+                        <td>${deviceCount}</td>
+                        <td>
+                            <button onclick="removeGroup('${group}')" class="btn btn-sm btn-danger">Remove</button>
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        }
+
+        function addGroup() {
+            const groupName = document.getElementById('newGroupName').value.trim();
+            if (!groupName) {
+                log('error', 'Please enter a group name', 'deviceManagementLog');
+                return;
+            }
+            
+            if (deviceGroups.includes(groupName)) {
+                log('error', 'Group already exists', 'deviceManagementLog');
+                return;
+            }
+            
+            deviceGroups.push(groupName);
+            localStorage.setItem('deviceGroups', JSON.stringify(deviceGroups));
+            document.getElementById('newGroupName').value = '';
+            loadDeviceGroups();
+            log('success', `Group "${groupName}" added successfully`, 'deviceManagementLog');
+        }
+
+        function removeGroup(groupName) {
+            if (confirm(`Are you sure you want to remove group "${groupName}"?`)) {
+                deviceGroups = deviceGroups.filter(group => group !== groupName);
+                localStorage.setItem('deviceGroups', JSON.stringify(deviceGroups));
+                
+                // Remove group from device configs
+                Object.keys(deviceConfigs).forEach(imei => {
+                    if (deviceConfigs[imei].group === groupName) {
+                        deviceConfigs[imei].group = '';
+                    }
+                });
+                localStorage.setItem('deviceConfigs', JSON.stringify(deviceConfigs));
+                
+                loadDeviceGroups();
+                loadDevices();
+                log('success', `Group "${groupName}" removed successfully`, 'deviceManagementLog');
+            }
+        }
+
+        function updateDeviceConfig(imei, field, value) {
+            if (!deviceConfigs[imei]) {
+                deviceConfigs[imei] = {};
+            }
+            deviceConfigs[imei][field] = value;
+            localStorage.setItem('deviceConfigs', JSON.stringify(deviceConfigs));
+            log('info', `Updated ${field} for device ${imei}`, 'deviceManagementLog');
+        }
+
+        function saveDeviceChanges() {
+            localStorage.setItem('deviceConfigs', JSON.stringify(deviceConfigs));
+            localStorage.setItem('deviceGroups', JSON.stringify(deviceGroups));
+            log('success', 'Device changes saved successfully', 'deviceManagementLog');
+        }
+
+        function exportDeviceConfig() {
+            const config = {
+                deviceGroups: deviceGroups,
+                deviceConfigs: deviceConfigs,
+                exportTime: new Date().toISOString()
+            };
+            downloadFile(JSON.stringify(config, null, 2), 'device-config.json', 'application/json');
+            log('success', 'Device configuration exported', 'deviceManagementLog');
+        }
+
+        function viewDeviceDetails(imei) {
+            log('info', `Viewing details for device ${imei}`, 'deviceManagementLog');
+            // TODO: Implement detailed device view
+        }
+
+        // Data SM Functions
+        async function exportDataSM() {
+            try {
+                log('info', 'Exporting Data SM...', 'dataSMLog');
+                
+                const startDate = document.getElementById('smStartDate').value;
+                const endDate = document.getElementById('smEndDate').value;
+                const deviceFilter = document.getElementById('smDeviceFilter').value;
+                const fileTemplate = document.getElementById('smFileTemplate').value;
+                
+                if (!startDate || !endDate) {
+                    log('error', 'Please select start and end dates', 'dataSMLog');
+                    return;
+                }
+                
+                const response = await fetch(`/api/data?start=${startDate}&end=${endDate}`);
+                const data = await response.json();
+                
+                // Filter by device if specified
+                const filteredData = deviceFilter === 'all' ? data : 
+                    data.filter(record => record.deviceId === deviceFilter);
+                
+                // Transform data to SM format
+                const smData = filteredData.map(record => ({
+                    Name: deviceConfigs[record.deviceId]?.name || record.deviceId,
+                    IMEI: record.deviceId,
+                    Timestamp: record.timestamp,
+                    Lat: record.latitude,
+                    Lon: record.longitude,
+                    Speed: record.speed,
+                    Alt: record.altitude,
+                    Satellite: record.satellites,
+                    'Sensor Kiri': record.userData0,
+                    'Sensor Kanan': record.userData1,
+                    'Sensor Serial ( Ultrasonic )': record.modbus0,
+                    'Uptime Seconds': record.userData2
+                }));
+                
+                // Generate filename
+                const date = new Date().toISOString().split('T')[0];
+                const filename = fileTemplate
+                    .replace('GroupName', deviceConfigs[filteredData[0]?.deviceId]?.group || 'Unknown')
+                    .replace('DeviceName', deviceConfigs[filteredData[0]?.deviceId]?.name || filteredData[0]?.deviceId || 'Unknown')
+                    .replace('YYYY-MM-DD', date);
+                
+                // Convert to CSV and download
+                const csv = convertToCSV(smData);
+                downloadFile(csv, filename, 'text/csv');
+                
+                // Update preview
+                updateDataSMPreview(smData);
+                
+                log('success', `Data SM exported: ${filename}`, 'dataSMLog');
+            } catch (error) {
+                log('error', `Error exporting Data SM: ${error.message}`, 'dataSMLog');
+            }
+        }
+
+        function updateDataSMPreview(data) {
+            const container = document.getElementById('dataSMPreview');
+            if (data.length === 0) {
+                container.innerHTML = '<div class="no-data">No data to preview</div>';
+                return;
+            }
+            
+            let html = '<table class="data-table"><thead><tr>';
+            Object.keys(data[0]).forEach(key => {
+                html += `<th>${key}</th>`;
+            });
+            html += '</tr></thead><tbody>';
+            
+            data.slice(0, 10).forEach(record => {
+                html += '<tr>';
+                Object.values(record).forEach(value => {
+                    html += `<td>${value || ''}</td>`;
+                });
+                html += '</tr>';
+            });
+            
+            html += '</tbody></table>';
+            if (data.length > 10) {
+                html += `<div class="preview-note">Showing first 10 of ${data.length} records</div>`;
+            }
+            container.innerHTML = html;
+        }
+
+        function setupAutoExport() {
+            const frequency = document.getElementById('smAutoExport').value;
+            if (frequency === 'disabled') {
+                localStorage.removeItem('autoExportConfig');
+                log('info', 'Auto export disabled', 'dataSMLog');
+                return;
+            }
+            
+            const config = {
+                frequency: frequency,
+                nextExport: calculateNextExport(frequency),
+                enabled: true
+            };
+            
+            localStorage.setItem('autoExportConfig', JSON.stringify(config));
+            startAutoExportTimer();
+            log('success', `Auto export set to ${frequency}`, 'dataSMLog');
+        }
+
+        function calculateNextExport(frequency) {
+            const now = new Date();
+            if (frequency === 'daily') {
+                return new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0).getTime();
+            } else if (frequency === 'weekly') {
+                const daysUntilSunday = (7 - now.getDay()) % 7;
+                return new Date(now.getFullYear(), now.getMonth(), now.getDate() + daysUntilSunday, 0, 0, 0).getTime();
+            }
+            return now.getTime();
+        }
+
+        function startAutoExportTimer() {
+            const config = JSON.parse(localStorage.getItem('autoExportConfig') || '{}');
+            if (!config.enabled) return;
+            
+            const timeUntilNext = config.nextExport - Date.now();
+            if (timeUntilNext > 0) {
+                setTimeout(() => {
+                    exportDataSM();
+                    setupAutoExport(); // Schedule next export
+                }, timeUntilNext);
+            }
+        }
+
+        function loadDataSMHistory() {
+            const history = JSON.parse(localStorage.getItem('dataSMHistory') || '[]');
+            const container = document.getElementById('dataSMLog');
+            
+            if (history.length === 0) {
+                container.innerHTML = '<div class="log-entry info">No export history available</div>';
+                return;
+            }
+            
+            let html = '';
+            history.slice(-10).forEach(entry => {
+                html += `<div class="log-entry ${entry.type}">[${entry.timestamp}] ${entry.message}</div>`;
+            });
+            container.innerHTML = html;
         }
     </script>
 </body>
