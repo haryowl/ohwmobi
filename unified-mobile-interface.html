@@ -528,6 +528,8 @@
             <button class="nav-tab active" onclick="showTab('tracking')">📍 Tracking</button>
             <button class="nav-tab" onclick="showTab('tracking-history')">📈 Tracking History</button>
             <button class="nav-tab" onclick="showTab('data-export')">📤 Data Export</button>
+            <button class="nav-tab" onclick="showTab('data-sm')">📊 Data SM</button>
+            <button class="nav-tab" onclick="showTab('device-management')">📱 Device Management</button>
             <button class="nav-tab" onclick="showTab('peer-sync')">🔄 Peer Sync</button>
             <button class="nav-tab" onclick="showTab('data-management')">📊 Data Management</button>
         </div>
@@ -795,6 +797,17 @@
             // Refresh map if needed
             if (tabName === 'tracking' && map) {
                 setTimeout(() => map.invalidateSize(), 100);
+            }
+
+            // Load data for specific tabs
+            if (tabName === 'tracking-history') {
+                loadTrackingHistory();
+            } else if (tabName === 'data-management') {
+                loadStats();
+                loadStorageInfo();
+            } else if (tabName === 'peer-sync') {
+                // Refresh peer list
+                updatePeerList();
             }
         }
 
@@ -1663,3 +1676,4 @@
     </script>
 </body>
 </html>
+
