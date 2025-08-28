@@ -817,14 +817,23 @@
 
     <!-- Device Management Tab -->
     <div id="device-management" class="tab-content">
-        <div class="section">
-            <h3>📱 Device Management</h3>
-            <div class="controls">
-                <button class="btn btn-primary" onclick="loadDevices()">🔄 Refresh Devices</button>
-                <button class="btn btn-success" onclick="saveDeviceChanges()">💾 Save Changes</button>
-                <button class="btn btn-info" onclick="exportDeviceConfig()">📤 Export Config</button>
-            </div>
-        </div>
+                 <div class="section">
+             <h3>📱 Device Management</h3>
+             <div class="controls">
+                 <button class="btn btn-primary" onclick="loadDevices()">🔄 Refresh Devices</button>
+                 <button class="btn btn-success" onclick="saveDeviceChanges()">💾 Save Changes</button>
+                 <button class="btn btn-info" onclick="exportDeviceConfig()">📤 Export Config</button>
+             </div>
+             <div class="server-info" style="margin-top: 15px; padding: 10px; background: #e3f2fd; border: 1px solid #2196f3; border-radius: 6px;">
+                 <strong>🌐 Server Information:</strong>
+                 <div style="margin-top: 5px; font-size: 0.9em;">
+                     <span><strong>Server IP:</strong> <span id="serverIP">Loading...</span></span><br>
+                     <span><strong>Server Port:</strong> <span id="serverPort">3001</span></span><br>
+                     <span><strong>Access URL:</strong> <span id="serverURL">Loading...</span> 
+                     <button class="btn btn-sm btn-info" onclick="copyServerURL()" style="margin-left: 10px; font-size: 0.8em;">📋 Copy URL</button></span>
+                 </div>
+             </div>
+         </div>
         
         <div class="section">
             <h3>📊 Device Groups</h3>
@@ -1950,10 +1959,11 @@
             } else if (tabName === 'peer-sync') {
                 // Refresh peer list
                 updatePeerList();
-            } else if (tabName === 'device-management') {
-                loadDevices();
-                loadDeviceGroups();
-            } else if (tabName === 'data-sm') {
+                         } else if (tabName === 'device-management') {
+                 loadDevices();
+                 loadDeviceGroups();
+                 loadServerInfo();
+             } else if (tabName === 'data-sm') {
                 loadDataSMHistory();
             }
         }
@@ -2089,10 +2099,89 @@
             log('success', 'Device configuration exported', 'deviceManagementLog');
         }
 
-        function viewDeviceDetails(imei) {
-            log('info', `Viewing details for device ${imei}`, 'deviceManagementLog');
-            // TODO: Implement detailed device view
-        }
+                 function viewDeviceDetails(imei) {
+             log('info', `Viewing details for device ${imei}`, 'deviceManagementLog');
+             // TODO: Implement detailed device view
+         }
+
+         // Server IP detection and display
+         async function loadServerInfo() {
+             try {
+                 // Get server IP from current location
+                 const serverIP = window.location.hostname;
+                 const serverPort = window.location.port || '3001';
+                 const serverURL = `${window.location.protocol}//${serverIP}:${serverPort}`;
+                 
+                 // Update the display
+                 document.getElementById('serverIP').textContent = serverIP;
+                 document.getElementById('serverPort').textContent = serverPort;
+                 document.getElementById('serverURL').textContent = serverURL;
+                 
+                 // Try to get local network IP from server
+                 try {
+                     const response = await fetch(`${config.apiUrl}/api/network-info`);
+                     if (response.ok) {
+                         const networkInfo = await response.json();
+                         if (networkInfo.localIP && networkInfo.localIP !== serverIP) {
+                             document.getElementById('serverIP').innerHTML = `
+                                 <span title="Local Network IP">${networkInfo.localIP}</span><br>
+                                 <span style="color: #666; font-size: 0.8em;" title="Current IP">Current: ${serverIP}</span>
+                             `;
+                         }
+                     }
+                 } catch (error) {
+                     // Server network info not available, try external IP
+                     try {
+                         const response = await fetch('https://api.ipify.org?format=json');
+                         if (response.ok) {
+                             const data = await response.json();
+                             const externalIP = data.ip;
+                             
+                             // Show both local and external IP if different
+                             if (externalIP !== serverIP && serverIP !== 'localhost' && serverIP !== '127.0.0.1') {
+                                 document.getElementById('serverIP').innerHTML = `
+                                     <span title="Local IP">${serverIP}</span><br>
+                                     <span style="color: #666; font-size: 0.8em;" title="External IP">External: ${externalIP}</span>
+                                 `;
+                             }
+                         }
+                     } catch (extError) {
+                         // External IP detection failed, use local IP only
+                         console.log('External IP detection failed:', extError.message);
+                     }
+                 }
+                 
+                 log('info', `Server info loaded: ${serverIP}:${serverPort}`, 'deviceManagementLog');
+             } catch (error) {
+                 log('error', `Error loading server info: ${error.message}`, 'deviceManagementLog');
+                 document.getElementById('serverIP').textContent = 'Error loading IP';
+                 document.getElementById('serverURL').textContent = 'Error loading URL';
+             }
+         }
+
+         function copyServerURL() {
+             const serverURL = document.getElementById('serverURL').textContent;
+             if (serverURL && serverURL !== 'Loading...' && serverURL !== 'Error loading URL') {
+                 navigator.clipboard.writeText(serverURL).then(() => {
+                     log('success', 'Server URL copied to clipboard', 'deviceManagementLog');
+                     
+                     // Show temporary success message
+                     const copyBtn = event.target;
+                     const originalText = copyBtn.textContent;
+                     copyBtn.textContent = '✅ Copied!';
+                     copyBtn.style.background = '#28a745';
+                     
+                     setTimeout(() => {
+                         copyBtn.textContent = originalText;
+                         copyBtn.style.background = '';
+                     }, 2000);
+                 }).catch(err => {
+                     log('error', 'Failed to copy URL to clipboard', 'deviceManagementLog');
+                 });
+             } else {
+                 log('warning', 'No valid server URL to copy', 'deviceManagementLog');
+             }
+         }
 
         // Data SM Functions
         async function exportDataSM() {
