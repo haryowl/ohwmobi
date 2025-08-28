@@ -199,6 +199,7 @@ if [ -f "$HOME/ohw-server.pid" ]; then
     if kill -0 $PID 2>/dev/null; then
         echo "✅ Server is running (PID: $PID)"
         echo "📱 Web Interface: http://localhost:3001"
+        echo "🎯 Unified Interface: http://localhost:3001/unified"
         echo "📱 Mobile Interface: http://localhost:3001/mobile"
         echo "🔄 Peer Sync: http://localhost:3001/peer-sync"
         echo "📊 Data Management: http://localhost:3001/data-management"
