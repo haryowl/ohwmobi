@@ -573,6 +573,40 @@
         </div>
         
         <div class="section">
+            <h3>📍 Tracking Map Filters</h3>
+            <div class="export-options">
+                <div class="option-group">
+                    <label>📱 Device Filter:</label>
+                    <select id="historyDeviceFilter" class="form-control" onchange="filterTrackingHistory()">
+                        <option value="all">All Devices</option>
+                    </select>
+                </div>
+                <div class="option-group">
+                    <label>📅 Start Date:</label>
+                    <input type="datetime-local" id="historyStartDate" class="form-control" onchange="filterTrackingHistory()">
+                </div>
+                <div class="option-group">
+                    <label>📅 End Date:</label>
+                    <input type="datetime-local" id="historyEndDate" class="form-control" onchange="filterTrackingHistory()">
+                </div>
+                <div class="option-group">
+                    <label>🎯 Show Tracking Lines:</label>
+                    <select id="showTrackingLines" class="form-control" onchange="toggleTrackingLines()">
+                        <option value="true">Show Lines</option>
+                        <option value="false">Hide Lines</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h3>🗺️ Tracking Map</h3>
+            <div class="map-container">
+                <div id="trackingHistoryMap" style="width: 100%; height: 400px; border-radius: 6px; border: 1px solid #dee2e6;"></div>
+            </div>
+        </div>
+        
+        <div class="section">
             <h3>📊 History Statistics</h3>
             <div id="historyStats" class="stats-grid">
                 <div class="stat-card">
@@ -2038,6 +2072,283 @@
                 html += `<div class="log-entry ${entry.type}">[${entry.timestamp}] ${entry.message}</div>`;
             });
             container.innerHTML = html;
+        }
+
+        // Tracking History Map Functions
+        let trackingHistoryMap = null;
+        let trackingHistoryMarkers = new Map();
+        let trackingHistoryLines = new Map();
+        let trackingHistoryData = [];
+
+        function initializeTrackingHistoryMap() {
+            if (trackingHistoryMap) {
+                trackingHistoryMap.remove();
+            }
+            
+            trackingHistoryMap = L.map('trackingHistoryMap').setView([0, 0], 2);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(trackingHistoryMap);
+        }
+
+        function filterTrackingHistory() {
+            const deviceFilter = document.getElementById('historyDeviceFilter').value;
+            const startDate = document.getElementById('historyStartDate').value;
+            const endDate = document.getElementById('historyEndDate').value;
+            
+            let filteredData = trackingHistoryData;
+            
+            // Filter by device
+            if (deviceFilter !== 'all') {
+                filteredData = filteredData.filter(record => record.deviceId === deviceFilter);
+            }
+            
+            // Filter by date range
+            if (startDate) {
+                filteredData = filteredData.filter(record => new Date(record.timestamp) >= new Date(startDate));
+            }
+            if (endDate) {
+                filteredData = filteredData.filter(record => new Date(record.timestamp) <= new Date(endDate));
+            }
+            
+            updateTrackingHistoryMap(filteredData);
+            updateHistoryStats(filteredData);
+            updateHistoryTable(filteredData);
+        }
+
+        function updateTrackingHistoryMap(data) {
+            if (!trackingHistoryMap) {
+                initializeTrackingHistoryMap();
+            }
+            
+            // Clear existing markers and lines
+            trackingHistoryMarkers.forEach(marker => trackingHistoryMap.removeLayer(marker));
+            trackingHistoryLines.forEach(line => trackingHistoryMap.removeLayer(line));
+            trackingHistoryMarkers.clear();
+            trackingHistoryLines.clear();
+            
+            if (data.length === 0) {
+                log('info', 'No tracking data to display on map', 'historyLog');
+                return;
+            }
+            
+            // Group data by device
+            const deviceGroups = {};
+            data.forEach(record => {
+                const deviceId = record.deviceId || record.imei || 'unknown';
+                if (!deviceGroups[deviceId]) {
+                    deviceGroups[deviceId] = [];
+                }
+                deviceGroups[deviceId].push(record);
+            });
+            
+            // Create markers and lines for each device
+            Object.entries(deviceGroups).forEach(([deviceId, records]) => {
+                const deviceName = deviceConfigs[deviceId]?.name || deviceId;
+                const deviceColor = getDeviceColor(deviceId);
+                
+                // Sort records by timestamp
+                records.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+                
+                // Create tracking line
+                const linePoints = records
+                    .filter(record => record.latitude && record.longitude)
+                    .map(record => [record.latitude, record.longitude]);
+                
+                if (linePoints.length > 1 && document.getElementById('showTrackingLines').value === 'true') {
+                    const line = L.polyline(linePoints, {
+                        color: deviceColor,
+                        weight: 3,
+                        opacity: 0.7
+                    }).addTo(trackingHistoryMap);
+                    
+                    // Add arrow markers to show direction
+                    for (let i = 1; i < linePoints.length; i += Math.max(1, Math.floor(linePoints.length / 10))) {
+                        const point = linePoints[i];
+                        const prevPoint = linePoints[i - 1];
+                        const angle = Math.atan2(point[0] - prevPoint[0], point[1] - prevPoint[1]) * 180 / Math.PI;
+                        
+                        const arrow = L.divIcon({
+                            html: `<div style="transform: rotate(${angle}deg); color: ${deviceColor}; font-size: 20px;">➤</div>`,
+                            className: 'tracking-arrow',
+                            iconSize: [20, 20]
+                        });
+                        
+                        L.marker(point, { icon: arrow }).addTo(trackingHistoryMap);
+                    }
+                    
+                    trackingHistoryLines.set(deviceId, line);
+                }
+                
+                // Create markers for start and end points
+                if (records.length > 0) {
+                    const firstRecord = records[0];
+                    const lastRecord = records[records.length - 1];
+                    
+                    if (firstRecord.latitude && firstRecord.longitude) {
+                        const startMarker = L.marker([firstRecord.latitude, firstRecord.longitude], {
+                            icon: L.divIcon({
+                                html: `<div style="background: ${deviceColor}; color: white; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 12px;">S</div>`,
+                                className: 'tracking-marker',
+                                iconSize: [20, 20]
+                            })
+                        }).addTo(trackingHistoryMap);
+                        
+                        startMarker.bindPopup(`
+                            <div style="min-width: 200px;">
+                                <h4>${deviceName} - Start</h4>
+                                <p><strong>Time:</strong> ${new Date(firstRecord.timestamp).toLocaleString()}</p>
+                                <p><strong>Location:</strong> ${firstRecord.latitude.toFixed(6)}, ${firstRecord.longitude.toFixed(6)}</p>
+                                ${firstRecord.speed ? `<p><strong>Speed:</strong> ${firstRecord.speed} km/h</p>` : ''}
+                            </div>
+                        `);
+                        
+                        trackingHistoryMarkers.set(`${deviceId}_start`, startMarker);
+                    }
+                    
+                    if (lastRecord.latitude && lastRecord.longitude && records.length > 1) {
+                        const endMarker = L.marker([lastRecord.latitude, lastRecord.longitude], {
+                            icon: L.divIcon({
+                                html: `<div style="background: ${deviceColor}; color: white; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 12px;">E</div>`,
+                                className: 'tracking-marker',
+                                iconSize: [20, 20]
+                            })
+                        }).addTo(trackingHistoryMap);
+                        
+                        endMarker.bindPopup(`
+                            <div style="min-width: 200px;">
+                                <h4>${deviceName} - End</h4>
+                                <p><strong>Time:</strong> ${new Date(lastRecord.timestamp).toLocaleString()}</p>
+                                <p><strong>Location:</strong> ${lastRecord.latitude.toFixed(6)}, ${lastRecord.longitude.toFixed(6)}</p>
+                                ${lastRecord.speed ? `<p><strong>Speed:</strong> ${lastRecord.speed} km/h</p>` : ''}
+                            </div>
+                        `);
+                        
+                        trackingHistoryMarkers.set(`${deviceId}_end`, endMarker);
+                    }
+                }
+            });
+            
+            // Fit map to show all data
+            if (trackingHistoryMarkers.size > 0 || trackingHistoryLines.size > 0) {
+                const bounds = L.latLngBounds([]);
+                trackingHistoryMarkers.forEach(marker => bounds.extend(marker.getLatLng()));
+                trackingHistoryLines.forEach(line => bounds.extend(line.getBounds()));
+                trackingHistoryMap.fitBounds(bounds);
+            }
+            
+            log('success', `Displayed ${data.length} tracking records on map`, 'historyLog');
+        }
+
+        function getDeviceColor(deviceId) {
+            const colors = ['#007bff', '#28a745', '#ffc107', '#dc3545', '#6f42c1', '#fd7e14', '#20c997', '#e83e8c'];
+            const index = deviceId.toString().split('').reduce((sum, char) => sum + char.charCodeAt(0), 0) % colors.length;
+            return colors[index];
+        }
+
+        function toggleTrackingLines() {
+            const showLines = document.getElementById('showTrackingLines').value === 'true';
+            
+            trackingHistoryLines.forEach((line, deviceId) => {
+                if (showLines) {
+                    trackingHistoryMap.addLayer(line);
+                } else {
+                    trackingHistoryMap.removeLayer(line);
+                }
+            });
+            
+            log('info', `Tracking lines ${showLines ? 'shown' : 'hidden'}`, 'historyLog');
+        }
+
+        // Enhanced loadTrackingHistory function
+        async function loadTrackingHistory() {
+            try {
+                log('info', 'Loading tracking history...', 'historyLog');
+                const response = await fetch(`${config.apiUrl}/api/data/latest?limit=1000`);
+                const data = await response.json();
+                
+                trackingHistoryData = data;
+                
+                // Populate device filter
+                const deviceFilter = document.getElementById('historyDeviceFilter');
+                const devices = [...new Set(data.map(record => record.deviceId || record.imei))];
+                
+                deviceFilter.innerHTML = '<option value="all">All Devices</option>';
+                devices.forEach(deviceId => {
+                    const deviceName = deviceConfigs[deviceId]?.name || deviceId;
+                    deviceFilter.innerHTML += `<option value="${deviceId}">${deviceName}</option>`;
+                });
+                
+                // Set default date range (last 7 days)
+                const now = new Date();
+                const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                
+                document.getElementById('historyStartDate').value = weekAgo.toISOString().slice(0, 16);
+                document.getElementById('historyEndDate').value = now.toISOString().slice(0, 16);
+                
+                // Initialize map and display data
+                initializeTrackingHistoryMap();
+                filterTrackingHistory();
+                
+                log('success', `Loaded ${data.length} tracking records`, 'historyLog');
+            } catch (error) {
+                log('error', `Error loading tracking history: ${error.message}`, 'historyLog');
+            }
+        }
+
+        // Enhanced updateHistoryStats function
+        function updateHistoryStats(data) {
+            const totalRecords = data.length;
+            const totalDevices = new Set(data.map(record => record.deviceId || record.imei)).size;
+            const avgSpeed = data.length > 0 ? 
+                (data.reduce((sum, record) => sum + (record.speed || 0), 0) / data.length).toFixed(1) : 0;
+            
+            const dates = data.map(record => new Date(record.timestamp));
+            const dateRange = dates.length > 0 ? 
+                `${new Date(Math.min(...dates)).toLocaleDateString()} - ${new Date(Math.max(...dates)).toLocaleDateString()}` : '-';
+            
+            document.getElementById('totalRecords').textContent = totalRecords;
+            document.getElementById('totalDevices').textContent = totalDevices;
+            document.getElementById('dateRange').textContent = dateRange;
+            document.getElementById('avgSpeed').textContent = avgSpeed;
+        }
+
+        // Enhanced updateHistoryTable function
+        function updateHistoryTable(data) {
+            const tableDiv = document.getElementById('trackingHistoryTable');
+            if (data.length === 0) {
+                tableDiv.innerHTML = '<div class="no-data">No tracking records found</div>';
+                return;
+            }
+            
+            const table = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Device</th>
+                            <th>Time</th>
+                            <th>Location</th>
+                            <th>Speed</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${data.slice(0, 20).map(record => {
+                            const deviceName = deviceConfigs[record.deviceId]?.name || record.deviceId || record.imei || 'Unknown';
+                            return `
+                                <tr>
+                                    <td>${deviceName}</td>
+                                    <td>${new Date(record.timestamp).toLocaleString()}</td>
+                                    <td>${record.latitude ? `${record.latitude.toFixed(6)}, ${record.longitude.toFixed(6)}` : 'N/A'}</td>
+                                    <td>${record.speed ? `${record.speed.toFixed(1)} km/h` : 'N/A'}</td>
+                                    <td>${record.status || 'Active'}</td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            `;
+            tableDiv.innerHTML = table;
         }
     </script>
 </body>
