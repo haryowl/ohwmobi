@@ -558,6 +558,7 @@
             <button class="nav-tab" onclick="showTab('tracking-history')">📈 Tracking History</button>
             <button class="nav-tab" onclick="showTab('data-export')">📤 Data Export</button>
             <button class="nav-tab" onclick="showTab('data-sm')">📊 Data SM</button>
+            <button class="nav-tab" onclick="showTab('sm-export')">📋 SM EXPORT</button>
             <button class="nav-tab" onclick="showTab('device-management')">📱 Device Management</button>
             <button class="nav-tab" onclick="showTab('peer-sync')">🔄 Peer Sync</button>
             <button class="nav-tab" onclick="showTab('data-management')">📊 Data Management</button>
@@ -886,6 +887,86 @@
             <h3>📝 Data SM Log</h3>
             <div id="dataSMLog" class="log">
                 <div class="log-entry info">Data SM initialized...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SM EXPORT Tab -->
+    <div id="sm-export" class="tab-content">
+        <div class="section">
+            <h3>📋 SM EXPORT</h3>
+            <div class="controls">
+                <button class="btn btn-primary" onclick="exportSMExport()">📤 Export SM</button>
+                <button class="btn btn-success" onclick="setupSMAutoExport()">⏰ Setup Auto Export</button>
+                <button class="btn btn-info" onclick="loadSMExportHistory()">📋 Export History</button>
+                <button class="btn btn-info" onclick="loadExportDevices()">🔄 Refresh Devices</button>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h3>📋 Export Options</h3>
+            <div class="export-options">
+                <div class="option-group">
+                    <label>📅 Date Range:</label>
+                    <input type="datetime-local" id="smExportStartDate" class="form-control">
+                    <input type="datetime-local" id="smExportEndDate" class="form-control">
+                </div>
+                <div class="option-group">
+                    <label>📱 Device Filter:</label>
+                    <select id="smExportDeviceFilter" class="form-control">
+                        <option value="all">All Devices</option>
+                    </select>
+                </div>
+                <div class="option-group">
+                    <label>📁 File Template:</label>
+                    <input type="text" id="smExportFileTemplate" class="form-control" placeholder="GroupName_DeviceName_YYYY-MM-DD.pfsl" value="GroupName_DeviceName_YYYY-MM-DD.pfsl">
+                </div>
+                <div class="option-group">
+                    <label>⏰ Auto Export:</label>
+                    <select id="smExportAutoExport" class="form-control">
+                        <option value="disabled">Disabled</option>
+                        <option value="daily">Daily at Midnight</option>
+                        <option value="weekly">Weekly on Sunday</option>
+                    </select>
+                </div>
+                <div class="option-group">
+                    <label>🌍 Timezone:</label>
+                    <select id="smExportTimezone" class="form-control">
+                        <option value="UTC">UTC (Device Time)</option>
+                        <option value="UTC+7" selected>UTC+7 (WIB - Western Indonesian Time)</option>
+                        <option value="UTC+8">UTC+8 (WITA - Central Indonesian Time)</option>
+                        <option value="UTC+9">UTC+9 (WIT - Eastern Indonesian Time)</option>
+                        <option value="UTC+5:30">UTC+5:30 (IST - Indian Standard Time)</option>
+                        <option value="UTC+8:00">UTC+8:00 (China Standard Time)</option>
+                        <option value="UTC+9:00">UTC+9:00 (Japan Standard Time)</option>
+                        <option value="UTC-5">UTC-5 (EST - Eastern Standard Time)</option>
+                        <option value="UTC-8">UTC-8 (PST - Pacific Standard Time)</option>
+                        <option value="UTC+0">UTC+0 (GMT)</option>
+                        <option value="UTC+1">UTC+1 (CET - Central European Time)</option>
+                        <option value="UTC+2">UTC+2 (EET - Eastern European Time)</option>
+                        <option value="UTC+3">UTC+3 (MSK - Moscow Time)</option>
+                        <option value="UTC+4">UTC+4 (GST - Gulf Standard Time)</option>
+                        <option value="UTC+5">UTC+5 (PKT - Pakistan Standard Time)</option>
+                        <option value="UTC+6">UTC+6 (BST - Bangladesh Standard Time)</option>
+                        <option value="UTC+10">UTC+10 (AEST - Australian Eastern Standard Time)</option>
+                        <option value="UTC+11">UTC+11 (AEDT - Australian Eastern Daylight Time)</option>
+                        <option value="UTC+12">UTC+12 (NZST - New Zealand Standard Time)</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h3>📋 SM Export Preview</h3>
+            <div id="smExportPreview" class="data-table">
+                <div class="no-data">No data to preview. Set filters and click Export to see data.</div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h3>📝 SM Export Log</h3>
+            <div id="smExportLog" class="log">
+                <div class="log-entry info">SM Export initialized...</div>
             </div>
         </div>
     </div>
@@ -1954,6 +2035,16 @@
                     });
                 }
                 
+                // Populate device filter for SM EXPORT tab
+                const smExportDeviceFilter = document.getElementById('smExportDeviceFilter');
+                if (smExportDeviceFilter) {
+                    smExportDeviceFilter.innerHTML = '<option value="all">All Devices</option>';
+                    devices.forEach(device => {
+                        const deviceName = deviceConfigs[device.deviceId || device.imei]?.name || device.deviceId || device.imei;
+                        smExportDeviceFilter.innerHTML += `<option value="${device.deviceId || device.imei}">${deviceName}</option>`;
+                    });
+                }
+                
                 log('success', `Loaded ${devices.length} devices for export tabs and tracking history`);
             } catch (error) {
                 log('error', `Error loading devices for export: ${error.message}`);
@@ -2335,6 +2426,9 @@
             } else if (tabName === 'data-sm') {
                 loadExportDevices();
                 loadDataSMHistory();
+            } else if (tabName === 'sm-export') {
+                loadExportDevices();
+                loadSMExportHistory();
             }
         }
 
@@ -3214,6 +3308,270 @@
                 </table>
             `;
             tableDiv.innerHTML = table;
+        }
+
+        // SM EXPORT Functions
+        async function exportSMExport() {
+            try {
+                log('info', 'Exporting SM Export...', 'smExportLog');
+                
+                const startDate = document.getElementById('smExportStartDate').value;
+                const endDate = document.getElementById('smExportEndDate').value;
+                const deviceFilter = document.getElementById('smExportDeviceFilter').value;
+                const fileTemplate = document.getElementById('smExportFileTemplate').value;
+                
+                if (!startDate || !endDate) {
+                    log('error', 'Please select start and end dates', 'smExportLog');
+                    return;
+                }
+                
+                // Get all data first
+                const response = await fetch(`${config.apiUrl}/api/data`);
+                const data = await response.json();
+                const records = data.records || data || [];
+                
+                // Filter by date range using device datetime
+                const timezone = document.getElementById('smExportTimezone')?.value || 'UTC';
+                let filteredData = records.filter(record => {
+                    // Get device datetime from tags, fallback to record.datetime, then record.timestamp
+                    let deviceTimestamp = record.timestamp;
+                    if (record.tags && record.tags['0x20'] && record.tags['0x20'].value) {
+                        deviceTimestamp = record.tags['0x20'].value;
+                    } else if (record.datetime) {
+                        deviceTimestamp = record.datetime;
+                    }
+                    
+                    // Convert device datetime to specified timezone for comparison
+                    const deviceDate = convertToTimezone(new Date(deviceTimestamp), timezone);
+                    const start = new Date(startDate);
+                    const end = new Date(endDate);
+                    return deviceDate >= start && deviceDate <= end;
+                });
+                
+                // Filter by device if specified
+                if (deviceFilter !== 'all') {
+                    filteredData = filteredData.filter(record => record.deviceId === deviceFilter);
+                }
+                
+                if (filteredData.length === 0) {
+                    log('warning', 'No data found for the selected date range and device filter', 'smExportLog');
+                    return;
+                }
+                
+                // Transform data to SM Export format with proper tag extraction
+                const smExportData = filteredData.map(record => {
+                    // Extract values from tags if they exist
+                    let lat = record.latitude || '';
+                    let lon = record.longitude || '';
+                    let speed = record.speed || '';
+                    let altitude = record.height || '';
+                    let satellites = record.satellites || '';
+                    let userData0 = record.userData0 || '';
+                    let userData1 = record.userData1 || '';
+                    let userData2 = record.userData2 || '';
+                    let modbus0 = record.modbus0 || '';
+                    
+                    if (record.tags && typeof record.tags === 'object') {
+                        // Extract coordinates
+                        if (record.tags['0x30'] && record.tags['0x30'].value) {
+                            const coords = record.tags['0x30'].value;
+                            lat = coords.latitude || lat;
+                            lon = coords.longitude || lon;
+                            satellites = coords.satellites || satellites;
+                        }
+                        
+                        // Extract speed and direction
+                        if (record.tags['0x33'] && record.tags['0x33'].value) {
+                            const speedDir = record.tags['0x33'].value;
+                            speed = speedDir.speed || speed;
+                        }
+                        
+                        // Extract height/altitude
+                        if (record.tags['0x34']) {
+                            altitude = record.tags['0x34'].value || altitude;
+                        }
+                        
+                        // Extract user data
+                        if (record.tags['0xe2']) {
+                            userData0 = record.tags['0xe2'].value || userData0;
+                        }
+                        
+                        if (record.tags['0xe3']) {
+                            userData1 = record.tags['0xe3'].value || userData1;
+                        }
+                        
+                        if (record.tags['0xe4']) {
+                            userData2 = record.tags['0xe4'].value || userData2;
+                        }
+                        
+                        // Extract modbus data
+                        if (record.tags['0x0001']) {
+                            modbus0 = record.tags['0x0001'].value || modbus0;
+                        }
+                    }
+                    
+                    // Get device datetime from tags, fallback to record.datetime, then record.timestamp
+                    let deviceTimestamp = record.timestamp;
+                    if (record.tags && record.tags['0x20'] && record.tags['0x20'].value) {
+                        deviceTimestamp = record.tags['0x20'].value;
+                    } else if (record.datetime) {
+                        deviceTimestamp = record.datetime;
+                    }
+                    
+                    // Convert device datetime to specified timezone for export
+                    const convertedTimestamp = convertToTimezone(new Date(deviceTimestamp), timezone);
+                    
+                    return {
+                        IMEI: record.deviceId,
+                        Timestamp: convertedTimestamp.toISOString().replace('T', ' ').replace('Z', '').split('.')[0],
+                        Lat: lat,
+                        Lon: lon,
+                        Alt: altitude,
+                        Satellite: satellites,
+                        Speed: speed,
+                        'Sensor Kiri': userData0,
+                        'Sensor Kanan': userData1,
+                        'Sensor Serial ( Ultrasonic )': modbus0,
+                        'Uptime Seconds': userData2
+                    };
+                });
+                
+                // Filter out rows that only have IMEI and Timestamp (exclude incomplete records)
+                const completeData = smExportData.filter(record => {
+                    return record.Lat !== '' || record.Lon !== '' || record.Alt !== '' || 
+                           record.Satellite !== '' || record.Speed !== '' || 
+                           record['Sensor Kiri'] !== '' || record['Sensor Kanan'] !== '' || 
+                           record['Sensor Serial ( Ultrasonic )'] !== '' || record['Uptime Seconds'] !== '';
+                });
+                
+                if (completeData.length === 0) {
+                    log('warning', 'No complete data records found after filtering', 'smExportLog');
+                    return;
+                }
+                
+                // Generate filename
+                const date = new Date().toISOString().split('T')[0];
+                const filename = fileTemplate
+                    .replace('GroupName', deviceConfigs[filteredData[0]?.deviceId]?.group || 'Unknown')
+                    .replace('DeviceName', deviceConfigs[filteredData[0]?.deviceId]?.name || filteredData[0]?.deviceId || 'Unknown')
+                    .replace('YYYY-MM-DD', date);
+                
+                // Convert to CSV with semicolon delimiter for SM Export
+                const csv = convertSMExportToCSV(completeData);
+                downloadFile(csv, filename, 'text/csv');
+                
+                // Update preview
+                updateSMExportPreview(completeData);
+                
+                log('success', `SM Export completed: ${filename} with ${completeData.length} records`, 'smExportLog');
+            } catch (error) {
+                log('error', `Error exporting SM Export: ${error.message}`, 'smExportLog');
+            }
+        }
+
+        function convertSMExportToCSV(data) {
+            if (data.length === 0) return '';
+            
+            // Define headers in the specific order for SM Export
+            const headers = [
+                'IMEI', 'Timestamp', 'Lat', 'Lon', 'Alt', 'Satellite', 'Speed',
+                'Sensor Kiri', 'Sensor Kanan', 'Sensor Serial ( Ultrasonic )', 'Uptime Seconds'
+            ];
+            
+            // Create header row with semicolon delimiter
+            let csv = headers.join(';') + '\n';
+            
+            // Add data rows
+            data.forEach(record => {
+                const row = headers.map(header => {
+                    const value = record[header] || '';
+                    return value;
+                });
+                csv += row.join(';') + '\n';
+            });
+            
+            return csv;
+        }
+
+        function updateSMExportPreview(data) {
+            const container = document.getElementById('smExportPreview');
+            if (data.length === 0) {
+                container.innerHTML = '<div class="no-data">No data to preview</div>';
+                return;
+            }
+            
+            let html = '<table class="data-table"><thead><tr>';
+            Object.keys(data[0]).forEach(key => {
+                html += `<th>${key}</th>`;
+            });
+            html += '</tr></thead><tbody>';
+            
+            data.slice(0, 10).forEach(record => {
+                html += '<tr>';
+                Object.values(record).forEach(value => {
+                    html += `<td>${value || ''}</td>`;
+                });
+                html += '</tr>';
+            });
+            
+            html += '</tbody></table>';
+            if (data.length > 10) {
+                html += `<div class="preview-note">Showing first 10 of ${data.length} records</div>`;
+            }
+            container.innerHTML = html;
+        }
+
+        function setupSMAutoExport() {
+            const frequency = document.getElementById('smExportAutoExport').value;
+            if (frequency === 'disabled') {
+                localStorage.removeItem('smExportAutoConfig');
+                log('info', 'SM Export auto export disabled', 'smExportLog');
+                return;
+            }
+            
+            const config = {
+                frequency: frequency,
+                nextExport: calculateNextExport(frequency),
+                enabled: true
+            };
+            
+            localStorage.setItem('smExportAutoConfig', JSON.stringify(config));
+            startSMAutoExportTimer();
+            log('success', `SM Export auto export set to ${frequency}`, 'smExportLog');
+        }
+
+        function startSMAutoExportTimer() {
+            const config = JSON.parse(localStorage.getItem('smExportAutoConfig') || '{}');
+            if (!config.enabled) return;
+            
+            const now = Date.now();
+            if (now >= config.nextExport) {
+                // Time to export
+                exportSMExport();
+                
+                // Calculate next export time
+                config.nextExport = calculateNextExport(config.frequency);
+                localStorage.setItem('smExportAutoConfig', JSON.stringify(config));
+            }
+            
+            // Check again in 1 minute
+            setTimeout(startSMAutoExportTimer, 60000);
+        }
+
+        function loadSMExportHistory() {
+            const history = JSON.parse(localStorage.getItem('smExportHistory') || '[]');
+            const container = document.getElementById('smExportLog');
+            
+            if (history.length === 0) {
+                container.innerHTML = '<div class="log-entry info">No export history available</div>';
+                return;
+            }
+            
+            let html = '';
+            history.slice(-10).forEach(entry => {
+                html += `<div class="log-entry ${entry.type}">[${entry.timestamp}] ${entry.message}</div>`;
+            });
+            container.innerHTML = html;
         }
     </script>
 </body>
