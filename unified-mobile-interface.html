@@ -1965,16 +1965,111 @@
         function convertToCSV(data) {
             if (data.length === 0) return '';
             
-            const headers = Object.keys(data[0]);
+            // Flatten the data for export
+            const flattenedData = data.map(record => {
+                const flatRecord = {
+                    timestamp: record.timestamp || record.datetime || '',
+                    deviceId: record.deviceId || '',
+                    imei: record.imei || '',
+                    clientAddress: record.clientAddress || '',
+                    recordIndex: record.recordIndex || '',
+                    latitude: record.latitude || '',
+                    longitude: record.longitude || '',
+                    satellites: record.satellites || '',
+                    correctness: record.correctness || '',
+                    speed: record.speed || '',
+                    direction: record.direction || '',
+                    height: record.height || '',
+                    hdop: record.hdop || '',
+                    status: record.status || '',
+                    supplyVoltage: record.supplyVoltage || '',
+                    batteryVoltage: record.batteryVoltage || '',
+                    temperature: record.temperature || '',
+                    outputs: record.outputs || '',
+                    inputs: record.inputs || '',
+                    inputVoltage0: record.inputVoltage0 || '',
+                    inputVoltage1: record.inputVoltage1 || '',
+                    inputVoltage2: record.inputVoltage2 || '',
+                    inputVoltage3: record.inputVoltage3 || '',
+                    inputVoltage4: record.inputVoltage4 || '',
+                    inputVoltage5: record.inputVoltage5 || '',
+                    userData0: record.userData0 || '',
+                    userData1: record.userData1 || '',
+                    userData2: record.userData2 || '',
+                    modbus0: record.modbus0 || '',
+                    modbus1: record.modbus1 || '',
+                    archiveNumber: record.archiveNumber || '',
+                    datetime: record.datetime || '',
+                    milliseconds: record.milliseconds || ''
+                };
+                
+                // Extract values from tags if they exist
+                if (record.tags && typeof record.tags === 'object') {
+                    // Extract specific tag values
+                    if (record.tags['0x30'] && record.tags['0x30'].value) {
+                        const coords = record.tags['0x30'].value;
+                        flatRecord.latitude = coords.latitude || flatRecord.latitude;
+                        flatRecord.longitude = coords.longitude || flatRecord.longitude;
+                        flatRecord.satellites = coords.satellites || flatRecord.satellites;
+                        flatRecord.correctness = coords.correctness || flatRecord.correctness;
+                    }
+                    
+                    if (record.tags['0x33'] && record.tags['0x33'].value) {
+                        const speedDir = record.tags['0x33'].value;
+                        flatRecord.speed = speedDir.speed || flatRecord.speed;
+                        flatRecord.direction = speedDir.direction || flatRecord.direction;
+                    }
+                    
+                    if (record.tags['0x34']) {
+                        flatRecord.height = record.tags['0x34'].value || flatRecord.height;
+                    }
+                    
+                    if (record.tags['0x35']) {
+                        flatRecord.hdop = record.tags['0x35'].value || flatRecord.hdop;
+                    }
+                    
+                    if (record.tags['0x40']) {
+                        flatRecord.status = record.tags['0x40'].value || flatRecord.status;
+                    }
+                    
+                    if (record.tags['0x41']) {
+                        flatRecord.supplyVoltage = record.tags['0x41'].value || flatRecord.supplyVoltage;
+                    }
+                    
+                    if (record.tags['0x42']) {
+                        flatRecord.batteryVoltage = record.tags['0x42'].value || flatRecord.batteryVoltage;
+                    }
+                    
+                    if (record.tags['0xe2']) {
+                        flatRecord.userData0 = record.tags['0xe2'].value || flatRecord.userData0;
+                    }
+                    
+                    if (record.tags['0xe3']) {
+                        flatRecord.userData1 = record.tags['0xe3'].value || flatRecord.userData1;
+                    }
+                    
+                    if (record.tags['0xe4']) {
+                        flatRecord.userData2 = record.tags['0xe4'].value || flatRecord.userData2;
+                    }
+                    
+                    if (record.tags['0x0001']) {
+                        flatRecord.modbus0 = record.tags['0x0001'].value || flatRecord.modbus0;
+                    }
+                }
+                
+                return flatRecord;
+            });
+            
+            const headers = Object.keys(flattenedData[0]);
             const csvRows = [headers.join(',')];
             
-            for (const row of data) {
+            for (const row of flattenedData) {
                 const values = headers.map(header => {
                     const value = row[header];
-                    if (typeof value === 'object') {
-                        return JSON.stringify(value);
+                    if (value === null || value === undefined) {
+                        return '';
                     }
-                    return value || '';
+                    return value.toString();
                 });
                 csvRows.push(values.join(','));
             }
@@ -2358,21 +2453,73 @@
                     return;
                 }
                 
-                // Transform data to SM format
-                const smData = filteredData.map(record => ({
-                    Name: deviceConfigs[record.deviceId]?.name || record.deviceId,
-                    IMEI: record.deviceId,
-                    Timestamp: record.timestamp,
-                    Lat: record.latitude,
-                    Lon: record.longitude,
-                    Speed: record.speed,
-                    Alt: record.altitude,
-                    Satellite: record.satellites,
-                    'Sensor Kiri': record.userData0,
-                    'Sensor Kanan': record.userData1,
-                    'Sensor Serial ( Ultrasonic )': record.modbus0,
-                    'Uptime Seconds': record.userData2
-                }));
+                // Transform data to SM format with proper tag extraction
+                const smData = filteredData.map(record => {
+                    // Extract values from tags if they exist
+                    let lat = record.latitude || '';
+                    let lon = record.longitude || '';
+                    let speed = record.speed || '';
+                    let altitude = record.height || '';
+                    let satellites = record.satellites || '';
+                    let userData0 = record.userData0 || '';
+                    let userData1 = record.userData1 || '';
+                    let userData2 = record.userData2 || '';
+                    let modbus0 = record.modbus0 || '';
+                    
+                    if (record.tags && typeof record.tags === 'object') {
+                        // Extract coordinates
+                        if (record.tags['0x30'] && record.tags['0x30'].value) {
+                            const coords = record.tags['0x30'].value;
+                            lat = coords.latitude || lat;
+                            lon = coords.longitude || lon;
+                            satellites = coords.satellites || satellites;
+                        }
+                        
+                        // Extract speed and direction
+                        if (record.tags['0x33'] && record.tags['0x33'].value) {
+                            const speedDir = record.tags['0x33'].value;
+                            speed = speedDir.speed || speed;
+                        }
+                        
+                        // Extract height/altitude
+                        if (record.tags['0x34']) {
+                            altitude = record.tags['0x34'].value || altitude;
+                        }
+                        
+                        // Extract user data
+                        if (record.tags['0xe2']) {
+                            userData0 = record.tags['0xe2'].value || userData0;
+                        }
+                        
+                        if (record.tags['0xe3']) {
+                            userData1 = record.tags['0xe3'].value || userData1;
+                        }
+                        
+                        if (record.tags['0xe4']) {
+                            userData2 = record.tags['0xe4'].value || userData2;
+                        }
+                        
+                        // Extract modbus data
+                        if (record.tags['0x0001']) {
+                            modbus0 = record.tags['0x0001'].value || modbus0;
+                        }
+                    }
+                    
+                    return {
+                        Name: deviceConfigs[record.deviceId]?.name || record.deviceId,
+                        IMEI: record.deviceId,
+                        Timestamp: record.timestamp,
+                        Lat: lat,
+                        Lon: lon,
+                        Speed: speed,
+                        Alt: altitude,
+                        Satellite: satellites,
+                        'Sensor Kiri': userData0,
+                        'Sensor Kanan': userData1,
+                        'Sensor Serial ( Ultrasonic )': modbus0,
+                        'Uptime Seconds': userData2
+                    };
+                });
                 
                 // Generate filename
                 const date = new Date().toISOString().split('T')[0];
