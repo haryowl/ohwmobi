@@ -2575,12 +2575,12 @@
                     };
                 });
                 
-                // Generate filename with .pfsl extension
+                // Generate filename
                 const date = new Date().toISOString().split('T')[0];
                 const filename = fileTemplate
                     .replace('GroupName', deviceConfigs[filteredData[0]?.deviceId]?.group || 'Unknown')
                     .replace('DeviceName', deviceConfigs[filteredData[0]?.deviceId]?.name || filteredData[0]?.deviceId || 'Unknown')
-                    .replace('YYYY-MM-DD', date) + '.pfsl';
+                    .replace('YYYY-MM-DD', date);
                 
                 // Convert to CSV with custom headers for Data SM
                 const csv = convertDataSMToCSV(smData);
