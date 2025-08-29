@@ -627,6 +627,7 @@
                     <select id="historyDeviceFilter" class="form-control" onchange="filterTrackingHistory()">
                         <option value="all">All Devices</option>
                     </select>
+                    <button class="btn btn-info" onclick="loadExportDevices()" style="margin-left: 10px;">🔄 Refresh Devices</button>
                 </div>
                 <div class="option-group">
                     <label>📅 Start Date:</label>
@@ -1857,7 +1858,17 @@
                     });
                 }
                 
-                log('success', `Loaded ${devices.length} devices for export tabs`);
+                // Populate device filter for Tracking History tab
+                const historyDeviceFilter = document.getElementById('historyDeviceFilter');
+                if (historyDeviceFilter) {
+                    historyDeviceFilter.innerHTML = '<option value="all">All Devices</option>';
+                    devices.forEach(device => {
+                        const deviceName = deviceConfigs[device.deviceId || device.imei]?.name || device.deviceId || device.imei;
+                        historyDeviceFilter.innerHTML += `<option value="${device.deviceId || device.imei}">${deviceName}</option>`;
+                    });
+                }
+                
+                log('success', `Loaded ${devices.length} devices for export tabs and tracking history`);
             } catch (error) {
                 log('error', `Error loading devices for export: ${error.message}`);
             }
