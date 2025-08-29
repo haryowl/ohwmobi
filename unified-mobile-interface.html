@@ -2088,6 +2088,41 @@
             return csvRows.join('\n');
         }
 
+        function convertDataSMToCSV(data) {
+            if (data.length === 0) return '';
+            
+            // Define the specific headers for Data SM
+            const headers = [
+                'Name',
+                'IMEI', 
+                'Timestamp',
+                'Lat',
+                'Lon',
+                'Speed',
+                'Alt',
+                'Satellite',
+                'Sensor Kiri',
+                'Sensor Kanan',
+                'Sensor Serial ( Ultrasonic )',
+                'Uptime Seconds'
+            ];
+            
+            const csvRows = [headers.join(',')];
+            
+            for (const row of data) {
+                const values = headers.map(header => {
+                    const value = row[header];
+                    if (value === null || value === undefined) {
+                        return '';
+                    }
+                    return value.toString();
+                });
+                csvRows.push(values.join(','));
+            }
+            
+            return csvRows.join('\n');
+        }
+
         function downloadFile(content, filename, contentType) {
             const blob = new Blob([content], { type: contentType });
             const url = window.URL.createObjectURL(blob);
@@ -2540,15 +2575,15 @@
                     };
                 });
                 
-                // Generate filename
+                // Generate filename with .pfsl extension
                 const date = new Date().toISOString().split('T')[0];
                 const filename = fileTemplate
                     .replace('GroupName', deviceConfigs[filteredData[0]?.deviceId]?.group || 'Unknown')
                     .replace('DeviceName', deviceConfigs[filteredData[0]?.deviceId]?.name || filteredData[0]?.deviceId || 'Unknown')
-                    .replace('YYYY-MM-DD', date);
+                    .replace('YYYY-MM-DD', date) + '.pfsl';
                 
-                // Convert to CSV and download
-                const csv = convertToCSV(smData);
+                // Convert to CSV with custom headers for Data SM
+                const csv = convertDataSMToCSV(smData);
                 downloadFile(csv, filename, 'text/csv');
                 
                 // Update preview
