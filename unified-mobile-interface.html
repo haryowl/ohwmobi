@@ -638,6 +638,30 @@
                     <input type="datetime-local" id="historyEndDate" class="form-control" onchange="filterTrackingHistory()">
                 </div>
                 <div class="option-group">
+                    <label>🌍 Timezone:</label>
+                    <select id="historyTimezone" class="form-control" onchange="filterTrackingHistory()">
+                        <option value="UTC">UTC (Device Time)</option>
+                        <option value="UTC+7" selected>UTC+7 (WIB - Western Indonesian Time)</option>
+                        <option value="UTC+8">UTC+8 (WITA - Central Indonesian Time)</option>
+                        <option value="UTC+9">UTC+9 (WIT - Eastern Indonesian Time)</option>
+                        <option value="UTC+5:30">UTC+5:30 (IST - Indian Standard Time)</option>
+                        <option value="UTC+8:00">UTC+8:00 (China Standard Time)</option>
+                        <option value="UTC+9:00">UTC+9:00 (Japan Standard Time)</option>
+                        <option value="UTC-5">UTC-5 (EST - Eastern Standard Time)</option>
+                        <option value="UTC-8">UTC-8 (PST - Pacific Standard Time)</option>
+                        <option value="UTC+0">UTC+0 (GMT)</option>
+                        <option value="UTC+1">UTC+1 (CET - Central European Time)</option>
+                        <option value="UTC+2">UTC+2 (EET - Eastern European Time)</option>
+                        <option value="UTC+3">UTC+3 (MSK - Moscow Time)</option>
+                        <option value="UTC+4">UTC+4 (GST - Gulf Standard Time)</option>
+                        <option value="UTC+5">UTC+5 (PKT - Pakistan Standard Time)</option>
+                        <option value="UTC+6">UTC+6 (BST - Bangladesh Standard Time)</option>
+                        <option value="UTC+10">UTC+10 (AEST - Australian Eastern Standard Time)</option>
+                        <option value="UTC+11">UTC+11 (AEDT - Australian Eastern Daylight Time)</option>
+                        <option value="UTC+12">UTC+12 (NZST - New Zealand Standard Time)</option>
+                    </select>
+                </div>
+                <div class="option-group">
                     <label>🎯 Show Tracking Lines:</label>
                     <select id="showTrackingLines" class="form-control" onchange="toggleTrackingLines()">
                         <option value="true">Show Lines</option>
@@ -744,6 +768,30 @@
                         <option value="excel">Excel</option>
                     </select>
                 </div>
+                <div class="option-group">
+                    <label>🌍 Timezone:</label>
+                    <select id="exportTimezone" class="form-control">
+                        <option value="UTC">UTC (Device Time)</option>
+                        <option value="UTC+7" selected>UTC+7 (WIB - Western Indonesian Time)</option>
+                        <option value="UTC+8">UTC+8 (WITA - Central Indonesian Time)</option>
+                        <option value="UTC+9">UTC+9 (WIT - Eastern Indonesian Time)</option>
+                        <option value="UTC+5:30">UTC+5:30 (IST - Indian Standard Time)</option>
+                        <option value="UTC+8:00">UTC+8:00 (China Standard Time)</option>
+                        <option value="UTC+9:00">UTC+9:00 (Japan Standard Time)</option>
+                        <option value="UTC-5">UTC-5 (EST - Eastern Standard Time)</option>
+                        <option value="UTC-8">UTC-8 (PST - Pacific Standard Time)</option>
+                        <option value="UTC+0">UTC+0 (GMT)</option>
+                        <option value="UTC+1">UTC+1 (CET - Central European Time)</option>
+                        <option value="UTC+2">UTC+2 (EET - Eastern European Time)</option>
+                        <option value="UTC+3">UTC+3 (MSK - Moscow Time)</option>
+                        <option value="UTC+4">UTC+4 (GST - Gulf Standard Time)</option>
+                        <option value="UTC+5">UTC+5 (PKT - Pakistan Standard Time)</option>
+                        <option value="UTC+6">UTC+6 (BST - Bangladesh Standard Time)</option>
+                        <option value="UTC+10">UTC+10 (AEST - Australian Eastern Standard Time)</option>
+                        <option value="UTC+11">UTC+11 (AEDT - Australian Eastern Daylight Time)</option>
+                        <option value="UTC+12">UTC+12 (NZST - New Zealand Standard Time)</option>
+                    </select>
+                </div>
             </div>
         </div>
         
@@ -798,6 +846,30 @@
                         <option value="disabled">Disabled</option>
                         <option value="daily">Daily at Midnight</option>
                         <option value="weekly">Weekly on Sunday</option>
+                    </select>
+                </div>
+                <div class="option-group">
+                    <label>🌍 Timezone:</label>
+                    <select id="smTimezone" class="form-control">
+                        <option value="UTC">UTC (Device Time)</option>
+                        <option value="UTC+7" selected>UTC+7 (WIB - Western Indonesian Time)</option>
+                        <option value="UTC+8">UTC+8 (WITA - Central Indonesian Time)</option>
+                        <option value="UTC+9">UTC+9 (WIT - Eastern Indonesian Time)</option>
+                        <option value="UTC+5:30">UTC+5:30 (IST - Indian Standard Time)</option>
+                        <option value="UTC+8:00">UTC+8:00 (China Standard Time)</option>
+                        <option value="UTC+9:00">UTC+9:00 (Japan Standard Time)</option>
+                        <option value="UTC-5">UTC-5 (EST - Eastern Standard Time)</option>
+                        <option value="UTC-8">UTC-8 (PST - Pacific Standard Time)</option>
+                        <option value="UTC+0">UTC+0 (GMT)</option>
+                        <option value="UTC+1">UTC+1 (CET - Central European Time)</option>
+                        <option value="UTC+2">UTC+2 (EET - Eastern European Time)</option>
+                        <option value="UTC+3">UTC+3 (MSK - Moscow Time)</option>
+                        <option value="UTC+4">UTC+4 (GST - Gulf Standard Time)</option>
+                        <option value="UTC+5">UTC+5 (PKT - Pakistan Standard Time)</option>
+                        <option value="UTC+6">UTC+6 (BST - Bangladesh Standard Time)</option>
+                        <option value="UTC+10">UTC+10 (AEST - Australian Eastern Standard Time)</option>
+                        <option value="UTC+11">UTC+11 (AEDT - Australian Eastern Daylight Time)</option>
+                        <option value="UTC+12">UTC+12 (NZST - New Zealand Standard Time)</option>
                     </select>
                 </div>
             </div>
@@ -1783,15 +1855,29 @@
                         </tr>
                     </thead>
                     <tbody>
-                        ${data.slice(0, 20).map(record => `
-                            <tr>
-                                <td>${record.deviceId || record.imei || 'Unknown'}</td>
-                                <td>${new Date(record.timestamp).toLocaleString()}</td>
-                                <td>${record.latitude ? `${record.latitude.toFixed(6)}, ${record.longitude.toFixed(6)}` : 'N/A'}</td>
-                                <td>${record.speed ? `${record.speed.toFixed(1)} km/h` : 'N/A'}</td>
-                                <td>${record.status || 'Active'}</td>
-                            </tr>
-                        `).join('')}
+                        ${data.slice(0, 20).map(record => {
+                            // Get device datetime from tags, fallback to record.datetime, then record.timestamp
+                            let deviceTimestamp = record.timestamp;
+                            if (record.tags && record.tags['0x20'] && record.tags['0x20'].value) {
+                                deviceTimestamp = record.tags['0x20'].value;
+                            } else if (record.datetime) {
+                                deviceTimestamp = record.datetime;
+                            }
+                            
+                            // Convert to selected timezone for display
+                            const timezone = document.getElementById('historyTimezone')?.value || 'UTC';
+                            const convertedDate = convertToTimezone(new Date(deviceTimestamp), timezone);
+                            
+                            return `
+                                <tr>
+                                    <td>${record.deviceId || record.imei || 'Unknown'}</td>
+                                    <td>${convertedDate.toLocaleString()}</td>
+                                    <td>${record.latitude ? `${record.latitude.toFixed(6)}, ${record.longitude.toFixed(6)}` : 'N/A'}</td>
+                                    <td>${record.speed ? `${record.speed.toFixed(1)} km/h` : 'N/A'}</td>
+                                    <td>${record.status || 'Active'}</td>
+                                </tr>
+                            `;
+                        }).join('')}
                     </tbody>
                 </table>
             `;
@@ -1931,11 +2017,21 @@
                 // Filter by date range if specified
                 let filteredData = records;
                 if (startDate && endDate) {
+                    const timezone = document.getElementById('exportTimezone')?.value || 'UTC';
                     filteredData = records.filter(record => {
-                        const recordDate = new Date(record.timestamp);
+                        // Get device datetime from tags, fallback to record.datetime, then record.timestamp
+                        let deviceTimestamp = record.timestamp;
+                        if (record.tags && record.tags['0x20'] && record.tags['0x20'].value) {
+                            deviceTimestamp = record.tags['0x20'].value;
+                        } else if (record.datetime) {
+                            deviceTimestamp = record.datetime;
+                        }
+                        
+                        // Convert device datetime to specified timezone for comparison
+                        const deviceDate = convertToTimezone(new Date(deviceTimestamp), timezone);
                         const start = new Date(startDate);
                         const end = new Date(endDate);
-                        return recordDate >= start && recordDate <= end;
+                        return deviceDate >= start && deviceDate <= end;
                     });
                 }
                 
@@ -1973,13 +2069,74 @@
             }
         }
 
+        // Timezone conversion function
+        function convertToTimezone(date, timezone) {
+            try {
+                // Create a new date object to avoid modifying the original
+                const utcDate = new Date(date);
+                
+                // If timezone is UTC, return as is
+                if (timezone === 'UTC') {
+                    return utcDate;
+                }
+                
+                // For other timezones, we'll use a simple offset approach
+                // This is a simplified implementation - for production, consider using a library like moment-timezone
+                const timezoneOffsets = {
+                    'UTC+7': 7 * 60, // WIB (Western Indonesian Time)
+                    'UTC+8': 8 * 60, // WITA (Central Indonesian Time)
+                    'UTC+9': 9 * 60, // WIT (Eastern Indonesian Time)
+                    'UTC+5:30': 5.5 * 60, // IST (Indian Standard Time)
+                    'UTC+8:00': 8 * 60, // China Standard Time
+                    'UTC+9:00': 9 * 60, // Japan Standard Time
+                    'UTC-5': -5 * 60, // EST (Eastern Standard Time)
+                    'UTC-8': -8 * 60, // PST (Pacific Standard Time)
+                    'UTC+0': 0, // GMT
+                    'UTC+1': 1 * 60, // CET (Central European Time)
+                    'UTC+2': 2 * 60, // EET (Eastern European Time)
+                    'UTC+3': 3 * 60, // MSK (Moscow Time)
+                    'UTC+4': 4 * 60, // GST (Gulf Standard Time)
+                    'UTC+5': 5 * 60, // PKT (Pakistan Standard Time)
+                    'UTC+6': 6 * 60, // BST (Bangladesh Standard Time)
+                    'UTC+10': 10 * 60, // AEST (Australian Eastern Standard Time)
+                    'UTC+11': 11 * 60, // AEDT (Australian Eastern Daylight Time)
+                    'UTC+12': 12 * 60, // NZST (New Zealand Standard Time)
+                };
+                
+                const offset = timezoneOffsets[timezone];
+                if (offset !== undefined) {
+                    // Convert to the target timezone
+                    const targetTime = new Date(utcDate.getTime() + (offset * 60 * 1000));
+                    return targetTime;
+                }
+                
+                // If timezone not found, return UTC
+                return utcDate;
+            } catch (error) {
+                console.error('Error converting timezone:', error);
+                return date;
+            }
+        }
+
         function convertToCSV(data) {
             if (data.length === 0) return '';
             
             // Flatten the data for export
             const flattenedData = data.map(record => {
+                // Get device datetime from tags, fallback to record.datetime, then record.timestamp
+                let deviceTimestamp = record.timestamp;
+                if (record.tags && record.tags['0x20'] && record.tags['0x20'].value) {
+                    deviceTimestamp = record.tags['0x20'].value;
+                } else if (record.datetime) {
+                    deviceTimestamp = record.datetime;
+                }
+                
+                // Convert to selected timezone for export
+                const timezone = document.getElementById('exportTimezone')?.value || 'UTC';
+                const convertedTimestamp = convertToTimezone(new Date(deviceTimestamp), timezone);
+                
                 const flatRecord = {
-                    timestamp: record.timestamp || record.datetime || '',
+                    timestamp: convertedTimestamp.toISOString(),
                     deviceId: record.deviceId || '',
                     imei: record.imei || '',
                     clientAddress: record.clientAddress || '',
@@ -2481,12 +2638,22 @@
                 const data = await response.json();
                 const records = data.records || data || [];
                 
-                // Filter by date range
+                // Filter by date range using device datetime
+                const timezone = document.getElementById('smTimezone')?.value || 'UTC';
                 let filteredData = records.filter(record => {
-                    const recordDate = new Date(record.timestamp);
+                    // Get device datetime from tags, fallback to record.datetime, then record.timestamp
+                    let deviceTimestamp = record.timestamp;
+                    if (record.tags && record.tags['0x20'] && record.tags['0x20'].value) {
+                        deviceTimestamp = record.tags['0x20'].value;
+                    } else if (record.datetime) {
+                        deviceTimestamp = record.datetime;
+                    }
+                    
+                    // Convert device datetime to specified timezone for comparison
+                    const deviceDate = convertToTimezone(new Date(deviceTimestamp), timezone);
                     const start = new Date(startDate);
                     const end = new Date(endDate);
-                    return recordDate >= start && recordDate <= end;
+                    return deviceDate >= start && deviceDate <= end;
                 });
                 
                 // Filter by device if specified
@@ -2559,10 +2726,14 @@
                         deviceTimestamp = record.datetime;
                     }
                     
+                    // Convert device datetime to specified timezone for export
+                    const timezone = document.getElementById('smTimezone')?.value || 'UTC';
+                    const convertedTimestamp = convertToTimezone(new Date(deviceTimestamp), timezone);
+                    
                     return {
                         Name: deviceConfigs[record.deviceId]?.name || record.deviceId,
                         IMEI: record.deviceId,
-                        Timestamp: deviceTimestamp,
+                        Timestamp: convertedTimestamp.toISOString(),
                         Lat: lat,
                         Lon: lon,
                         Speed: speed,
@@ -2771,6 +2942,7 @@
             const deviceFilter = document.getElementById('historyDeviceFilter').value;
             const startDate = document.getElementById('historyStartDate').value;
             const endDate = document.getElementById('historyEndDate').value;
+            const timezone = document.getElementById('historyTimezone')?.value || 'UTC';
             
             let filteredData = trackingHistoryData;
             
@@ -2779,12 +2951,28 @@
                 filteredData = filteredData.filter(record => record.deviceId === deviceFilter);
             }
             
-            // Filter by date range
-            if (startDate) {
-                filteredData = filteredData.filter(record => new Date(record.timestamp) >= new Date(startDate));
-            }
-            if (endDate) {
-                filteredData = filteredData.filter(record => new Date(record.timestamp) <= new Date(endDate));
+            // Filter by date range using device datetime instead of server timestamp
+            if (startDate || endDate) {
+                filteredData = filteredData.filter(record => {
+                    // Get device datetime from tags, fallback to record.datetime, then record.timestamp
+                    let deviceTimestamp = record.timestamp;
+                    if (record.tags && record.tags['0x20'] && record.tags['0x20'].value) {
+                        deviceTimestamp = record.tags['0x20'].value;
+                    } else if (record.datetime) {
+                        deviceTimestamp = record.datetime;
+                    }
+                    
+                    // Convert device datetime to specified timezone for comparison
+                    const deviceDate = convertToTimezone(new Date(deviceTimestamp), timezone);
+                    
+                    if (startDate && deviceDate < new Date(startDate)) {
+                        return false;
+                    }
+                    if (endDate && deviceDate > new Date(endDate)) {
+                        return false;
+                    }
+                    return true;
+                });
             }
             
             updateTrackingHistoryMap(filteredData);
