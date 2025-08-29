@@ -2505,10 +2505,18 @@
                         }
                     }
                     
+                    // Get device datetime from tags, fallback to record.datetime, then record.timestamp
+                    let deviceTimestamp = record.timestamp;
+                    if (record.tags && record.tags['0x20'] && record.tags['0x20'].value) {
+                        deviceTimestamp = record.tags['0x20'].value;
+                    } else if (record.datetime) {
+                        deviceTimestamp = record.datetime;
+                    }
+                    
                     return {
                         Name: deviceConfigs[record.deviceId]?.name || record.deviceId,
                         IMEI: record.deviceId,
-                        Timestamp: record.timestamp,
+                        Timestamp: deviceTimestamp,
                         Lat: lat,
                         Lon: lon,
                         Speed: speed,
