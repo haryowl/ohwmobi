@@ -1735,12 +1735,13 @@
         async function loadTrackingHistory() {
             try {
                 log('info', 'Loading tracking history...');
-                const response = await fetch(`${config.apiUrl}/api/data/latest?limit=100`);
+                const response = await fetch(`${config.apiUrl}/api/data`);
                 const data = await response.json();
+                const records = data.records || data || [];
                 
-                updateHistoryStats(data);
-                updateHistoryTable(data);
-                log('success', `Loaded ${data.length} tracking records`);
+                updateHistoryStats(records);
+                updateHistoryTable(records);
+                log('success', `Loaded ${records.length} tracking records`);
             } catch (error) {
                 log('error', `Error loading tracking history: ${error.message}`);
             }
@@ -1799,12 +1800,13 @@
         async function exportTrackingHistory() {
             try {
                 log('info', 'Exporting tracking history...');
-                const response = await fetch(`${config.apiUrl}/api/data/latest?limit=1000`);
+                const response = await fetch(`${config.apiUrl}/api/data`);
                 const data = await response.json();
+                const records = data.records || data || [];
                 
-                const csv = convertToCSV(data);
+                const csv = convertToCSV(records);
                 downloadFile(csv, 'tracking-history.csv', 'text/csv');
-                log('success', 'Tracking history exported successfully');
+                log('success', `Tracking history exported successfully: ${records.length} records`);
             } catch (error) {
                 log('error', `Error exporting tracking history: ${error.message}`);
             }
@@ -1865,17 +1867,20 @@
         async function exportAllData() {
             try {
                 log('info', 'Exporting all data...');
-                const response = await fetch(`${config.apiUrl}/api/data/latest?limit=10000`);
+                const response = await fetch(`${config.apiUrl}/api/data`);
                 const data = await response.json();
+                
+                // Extract records from the response
+                const records = data.records || data || [];
                 
                 const format = document.getElementById('exportFormat').value;
                 if (format === 'csv') {
-                    const csv = convertToCSV(data);
+                    const csv = convertToCSV(records);
                     downloadFile(csv, 'all-data.csv', 'text/csv');
                 } else {
-                    downloadFile(JSON.stringify(data, null, 2), 'all-data.json', 'application/json');
+                    downloadFile(JSON.stringify(records, null, 2), 'all-data.json', 'application/json');
                 }
-                log('success', 'All data exported successfully');
+                log('success', `All data exported successfully: ${records.length} records`);
             } catch (error) {
                 log('error', `Error exporting all data: ${error.message}`);
             }
@@ -1907,16 +1912,26 @@
                 const endDate = document.getElementById('exportEndDate').value;
                 const deviceFilter = document.getElementById('exportDeviceFilter').value;
                 
-                let url = `${config.apiUrl}/api/data/latest?limit=10000`;
+                // Get all data first
+                const response = await fetch(`${config.apiUrl}/api/data`);
+                const data = await response.json();
+                const records = data.records || data || [];
+                
+                // Filter by date range if specified
+                let filteredData = records;
                 if (startDate && endDate) {
-                    url += `&startDate=${startDate}&endDate=${endDate}`;
+                    filteredData = records.filter(record => {
+                        const recordDate = new Date(record.timestamp);
+                        const start = new Date(startDate);
+                        const end = new Date(endDate);
+                        return recordDate >= start && recordDate <= end;
+                    });
                 }
                 
-                const response = await fetch(url);
-                const data = await response.json();
-                
-                const filteredData = deviceFilter === 'all' ? data : 
-                    data.filter(record => record.deviceId === deviceFilter);
+                // Filter by device if specified
+                if (deviceFilter !== 'all') {
+                    filteredData = filteredData.filter(record => record.deviceId === deviceFilter);
+                }
                 
                 const format = document.getElementById('exportFormat').value;
                 if (format === 'csv') {
@@ -1925,7 +1940,7 @@
                 } else {
                     downloadFile(JSON.stringify(filteredData, null, 2), 'tracking-data.json', 'application/json');
                 }
-                log('success', 'Tracking data exported successfully');
+                log('success', `Tracking data exported successfully: ${filteredData.length} records`);
             } catch (error) {
                 log('error', `Error exporting tracking data: ${error.message}`);
             }
@@ -2320,12 +2335,28 @@
                     return;
                 }
                 
-                const response = await fetch(`/api/data?start=${startDate}&end=${endDate}`);
+                // Get all data first
+                const response = await fetch(`${config.apiUrl}/api/data`);
                 const data = await response.json();
+                const records = data.records || data || [];
+                
+                // Filter by date range
+                let filteredData = records.filter(record => {
+                    const recordDate = new Date(record.timestamp);
+                    const start = new Date(startDate);
+                    const end = new Date(endDate);
+                    return recordDate >= start && recordDate <= end;
+                });
                 
                 // Filter by device if specified
-                const filteredData = deviceFilter === 'all' ? data : 
-                    data.filter(record => record.deviceId === deviceFilter);
+                if (deviceFilter !== 'all') {
+                    filteredData = filteredData.filter(record => record.deviceId === deviceFilter);
+                }
+                
+                if (filteredData.length === 0) {
+                    log('warning', 'No data found for the selected date range and device filter', 'dataSMLog');
+                    return;
+                }
                 
                 // Transform data to SM format
                 const smData = filteredData.map(record => ({
@@ -2357,7 +2388,7 @@
                 // Update preview
                 updateDataSMPreview(smData);
                 
-                log('success', `Data SM exported: ${filename}`, 'dataSMLog');
+                log('success', `Data SM exported: ${filename} with ${smData.length} records`, 'dataSMLog');
             } catch (error) {
                 log('error', `Error exporting Data SM: ${error.message}`, 'dataSMLog');
             }
@@ -2708,10 +2739,11 @@
         async function loadTrackingHistory() {
             try {
                 log('info', 'Loading tracking history...', 'historyLog');
-                const response = await fetch(`${config.apiUrl}/api/data/latest?limit=1000`);
+                const response = await fetch(`${config.apiUrl}/api/data`);
                 const data = await response.json();
+                const records = data.records || data || [];
                 
-                trackingHistoryData = data;
+                trackingHistoryData = records;
                 
                 // Populate device filter
                 const deviceFilter = document.getElementById('historyDeviceFilter');
