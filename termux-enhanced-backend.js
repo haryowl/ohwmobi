@@ -350,8 +350,12 @@ class PacketTypeHandler {
         return packetType === 0x01;
     }
 
+    static isDataPacket(packetType) {
+        return packetType === 0x01 || packetType === 0x15; // Both 0x01 and 0x15 contain data
+    }
+
     static isIgnorablePacket(packetType) {
-        return packetType === 0x15;
+        return false; // No packets are truly ignorable - they all contain data
     }
 }
 
@@ -578,8 +582,9 @@ async function parseExtendedTags(buffer, offset) {
 // Parse main packet (adapted from original working parser)
 async function parseMainPacket(buffer, offset = 0, actualLength) {
     try {
+        const header = buffer.readUInt8(offset);
         const result = {
-            header: buffer.readUInt8(offset),
+            header: header,
             length: actualLength,
             rawLength: actualLength,
             records: []
@@ -587,6 +592,14 @@ async function parseMainPacket(buffer, offset = 0, actualLength) {
 
         let currentOffset = offset + 3;
         const endOffset = offset + actualLength;
+        
+        console.log(`🔍 Parsing packet with header 0x${header.toString(16)}, length: ${actualLength}`);
+        
+        // Special handling for 0x15 packets
+        if (header === 0x15) {
+            console.log('🔍 Processing 0x15 packet with special parsing');
+            return await parsePacket15(buffer, offset, actualLength);
+        }
 
         if (actualLength < 32) {
             // Single record packet
@@ -928,7 +941,82 @@ async function parseMainPacket(buffer, offset = 0, actualLength) {
     }
 }
 
-// Parse ignorable packet
+// Parse 0x15 packet (special structure)
+async function parsePacket15(buffer, offset = 0, actualLength) {
+    console.log('🔍 Parsing 0x15 packet with special structure');
+    
+    const result = {
+        header: 0x15,
+        length: actualLength,
+        rawLength: actualLength,
+        records: []
+    };
+    
+    try {
+        // Skip header and length (3 bytes)
+        let currentOffset = offset + 3;
+        const endOffset = offset + actualLength;
+        
+        // Look for IMEI pattern in the packet
+        // Based on user analysis, IMEI is in the second part: 0100020303383632333131303637343038313531
+        // The IMEI starts after 0100020303 and is 15 bytes long
+        
+        console.log('🔍 Searching for IMEI pattern in 0x15 packet...');
+        
+        // Convert buffer to hex string for pattern matching
+        const hexData = buffer.toString('hex');
+        console.log('🔍 Full packet hex:', hexData);
+        
+        // Look for IMEI pattern: 0100020303 followed by 15 bytes
+        const imeiPattern = /0100020303([0-9a-f]{30})/i;
+        const match = hexData.match(imeiPattern);
+        
+        if (match) {
+            const imeiHex = match[1];
+            console.log('🔍 Found IMEI hex pattern:', imeiHex);
+            
+            // Convert hex IMEI to string
+            const imei = Buffer.from(imeiHex, 'hex').toString('utf8');
+            console.log('🔍 Extracted IMEI:', imei);
+            
+            // Create a record with the IMEI
+            const record = {
+                tags: {
+                    '0x03': {
+                        value: imei,
+                        type: 'string',
+                        description: 'IMEI'
+                    }
+                }
+            };
+            
+            result.records.push(record);
+            console.log('✅ 0x15 packet parsed successfully with IMEI:', imei);
+        } else {
+            console.log('⚠️ No IMEI pattern found in 0x15 packet');
+            
+            // Create a basic record for debugging
+            const record = {
+                tags: {
+                    '0x15_debug': {
+                        value: hexData,
+                        type: 'string',
+                        description: 'Raw 0x15 packet data'
+                    }
+                }
+            };
+            
+            result.records.push(record);
+        }
+        
+    } catch (error) {
+        console.error('❌ Error parsing 0x15 packet:', error);
+    }
+    
+    return result;
+}
+
+// Parse ignorable packet (kept for compatibility)
 async function parseIgnorablePacket(buffer) {
     return {
         type: 'ignorable',
@@ -959,12 +1047,14 @@ async function parsePacket(buffer) {
         console.log(`Parsing packet - Type: 0x${header.toString(16)}, Length: ${actualLength}, Small packet: ${actualLength < 32}`);
         
         // Use PacketTypeHandler to determine packet type
-        if (PacketTypeHandler.isMainPacket(header)) {
-            // This is a Head Packet or Main Packet
+        if (PacketTypeHandler.isDataPacket(header)) {
+            // This is a data packet (0x01 or 0x15) - parse it for data
+            console.log(`🔍 Parsing data packet with header 0x${header.toString(16)}`);
             const result = await parseMainPacket(buffer, 0, actualLength);
             result.hasUnsentData = hasUnsentData;
             result.actualLength = actualLength;
             result.rawLength = rawLength;
+            result.packetType = header;
             
             // Add summary for small packets
             if (actualLength < 32) {
@@ -972,11 +1062,9 @@ async function parsePacket(buffer) {
             }
             
             return result;
-        } else if (PacketTypeHandler.isIgnorablePacket(header)) {
-            // This is an ignorable packet, just needs confirmation
-            return await parseIgnorablePacket(buffer);
         } else {
-            // This is an extension packet
+            // This is an extension packet or other type
+            console.log(`🔍 Processing extension packet with header 0x${header.toString(16)}`);
             return {
                 type: 'extension',
                 header: header,
