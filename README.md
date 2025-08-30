@@ -10,15 +10,15 @@ A complete IoT tracking and telemetry system designed specifically for mobile de
 
 ```bash
 # Install in Termux with one command
-curl -sSL https://raw.githubusercontent.com/haryowl/ohwmob/main/install-termux.sh | bash
+curl -sSL https://raw.githubusercontent.com/haryowl/ohwmobi/main/install-termux.sh | bash
 ```
 
 ### Manual Installation
 
 ```bash
 # Clone the repository
-git clone https://github.com/haryowl/ohwmob.git
-cd ohwmob
+git clone https://github.com/haryowl/ohwmobi.git
+cd ohwmobi
 
 # Install dependencies
 npm install
@@ -60,7 +60,7 @@ node termux-enhanced-backend.js
 
 ### Method 1: Termux (Recommended)
 ```bash
-curl -sSL https://raw.githubusercontent.com/haryowl/ohwmob/main/install-termux.sh | bash
+curl -sSL https://raw.githubusercontent.com/haryowl/ohwmobi/main/install-termux.sh | bash
 ```
 
 ### Method 2: Manual Setup
@@ -69,22 +69,22 @@ curl -sSL https://raw.githubusercontent.com/haryowl/ohwmob/main/install-termux.s
 # Open Termux and run:
 pkg update -y
 pkg install -y nodejs git sqlite wget curl
-git clone https://github.com/haryowl/ohwmob.git
-cd ohwmob
+git clone https://github.com/haryowl/ohwmobi.git
+cd ohwmobi
 npm install
 cd backend && npm install && cd ..
 ```
 
 ### Method 3: Docker
 ```bash
-docker pull haryowl/ohwmob:latest
+docker pull haryowl/ohwmobi:latest
 docker run -d \
   --name ohw-parser \
   -p 3001:3001 \
   -p 3003:3003 \
   -p 3004:3004 \
   -v /data/ohw:/app/data \
-  haryowl/ohwmob:latest
+  haryowl/ohwmobi:latest
 ```
 
 ## 🎮 Usage
@@ -128,7 +128,7 @@ node termux-enhanced-backend.js
 ## 📊 Project Structure
 
 ```
-ohwmob/
+ohwmobi/
 ├── termux-enhanced-backend.js    # Main mobile server
 ├── unified-mobile-interface.html # Unified web interface
 ├── backend/                      # Backend services
@@ -168,8 +168,8 @@ PEER_SYNC_PORT=3004
 ### Local Development
 ```bash
 # Clone repository
-git clone https://github.com/haryowl/ohwmob.git
-cd ohwmob
+git clone https://github.com/haryowl/ohwmobi.git
+cd ohwmobi
 
 # Install dependencies
 npm install
@@ -218,7 +218,7 @@ kill -9 [PID]
 chmod +x ~/ohw-*.sh
 
 # Fix project permissions
-chmod -R 755 ~/ohwmob
+chmod -R 755 ~/ohwmobi
 ```
 
 #### Can't Access Web Interface
@@ -247,14 +247,14 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🆘 Support
 
-- **GitHub Issues**: [Report problems](https://github.com/haryowl/ohwmob/issues)
+- **GitHub Issues**: [Report problems](https://github.com/haryowl/ohwmobi/issues)
 - **Documentation**: Check the guides in the `docs/` directory
 - **Community**: Join OHW community forums
 
 ## 🔗 Links
 
-- **GitHub Repository**: https://github.com/haryowl/ohwmob
-- **PWA Demo**: https://haryowl.github.io/ohwmob/
+- **GitHub Repository**: https://github.com/haryowl/ohwmobi
+- **PWA Demo**: https://haryowl.github.io/ohwmobi/
 - **Documentation**: Check README files in project
 
 ---

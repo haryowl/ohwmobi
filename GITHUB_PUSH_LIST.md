@@ -151,7 +151,7 @@
 ```bash
 # Initialize git repository (if not already done)
 git init
-git remote add origin https://github.com/haryowl/ohwmob.git
+git remote add origin https://github.com/haryowl/ohwmobi.git
 
 # Add all files
 git add .
@@ -165,7 +165,7 @@ git push -u origin main
 
 ## ✅ Pre-Push Checklist
 
-- [x] All repository URLs updated to `haryowl/ohwmob`
+- [x] All repository URLs updated to `haryowl/ohwmobi`
 - [x] Installation scripts tested
 - [x] Documentation updated
 - [x] Dependencies listed in package.json
@@ -178,7 +178,7 @@ git push -u origin main
 
 ## 🎉 Ready for GitHub!
 
-The mobile application is now ready to be pushed to `https://github.com/haryowl/ohwmob.git` with:
+The mobile application is now ready to be pushed to `https://github.com/haryowl/ohwmobi.git` with:
 
 - ✅ **Complete functionality** - All features working
 - ✅ **Easy installation** - One-command setup

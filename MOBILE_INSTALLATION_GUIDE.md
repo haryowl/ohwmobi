@@ -59,7 +59,7 @@ git version 2.x.x
 cd ~
 
 # Clone the OHW Parser repository
-git clone https://github.com/haryowl/ohwmob.git
+git clone https://github.com/haryowl/ohwmobi.git
 
 # Enter the project directory
 cd ohw
@@ -428,7 +428,7 @@ ps aux | grep node
 ```
 
 ### GitHub Repository:
-- **URL:** https://github.com/haryowl/ohwmob
+- **URL:** https://github.com/haryowl/ohwmobi
 - **Issues:** Report problems on GitHub
 - **Updates:** Pull latest changes with `git pull origin main`
 

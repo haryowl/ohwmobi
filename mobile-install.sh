@@ -56,7 +56,7 @@ if [ ! -f "package.json" ] && [ ! -f "backend/package.json" ]; then
     print_warning "Not in project directory, checking if we need to clone..."
     if [ ! -d "ohw" ]; then
         print_info "Cloning repository..."
-        git clone https://github.com/haryowl/ohwmob.git
+        git clone https://github.com/haryowl/ohwmobi.git
         cd ohw
     else
         cd ohw

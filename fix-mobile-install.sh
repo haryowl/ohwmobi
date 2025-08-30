@@ -48,7 +48,7 @@ elif [ -f "package.json" ] || [ -f "backend/package.json" ]; then
 else
     print_error "No project directory found"
     echo "Please run the installation script first:"
-    echo "curl -sSL https://raw.githubusercontent.com/haryowl/ohwmob/main/install-mobile.sh | bash"
+    echo "curl -sSL https://raw.githubusercontent.com/haryowl/ohwmobi/main/install-mobile.sh | bash"
     exit 1
 fi
 

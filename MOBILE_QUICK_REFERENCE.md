@@ -4,7 +4,7 @@
 
 ```bash
 # Download and run the installer
-curl -sSL https://raw.githubusercontent.com/haryowl/ohwmob/main/install-mobile.sh | bash
+curl -sSL https://raw.githubusercontent.com/haryowl/ohwmobi/main/install-mobile.sh | bash
 ```
 
 ## 📋 Prerequisites
@@ -21,7 +21,7 @@ curl -sSL https://raw.githubusercontent.com/haryowl/ohwmob/main/install-mobile.s
 ### 2. Run Installation
 ```bash
 # Open Termux and run:
-curl -sSL https://raw.githubusercontent.com/haryowl/ohwmob/main/install-mobile.sh | bash
+curl -sSL https://raw.githubusercontent.com/haryowl/ohwmobi/main/install-mobile.sh | bash
 ```
 
 ### 3. Start the Server
@@ -171,7 +171,7 @@ cd ~/ohw && git pull origin main
 ```
 
 ### GitHub Repository
-- **URL:** https://github.com/haryowl/ohwmob
+- **URL:** https://github.com/haryowl/ohwmobi
 - **Issues:** Report problems on GitHub
 - **Updates:** `git pull origin main`
 

@@ -20,7 +20,7 @@ This guide shows you how to set up the OHW parser as a Progressive Web App (PWA)
 
 1. **Open your browser** and go to:
    ```
-   https://haryowl.github.io/ohwmob/
+   https://haryowl.github.io/ohwmobi/
    ```
 
 2. **Install the PWA**:
@@ -38,8 +38,8 @@ This guide shows you how to set up the OHW parser as a Progressive Web App (PWA)
 
 1. **Clone the repository**:
    ```bash
-   git clone https://github.com/haryowl/ohwmob.git
-   cd ohw
+   git clone https://github.com/haryowl/ohwmobi.git
+   cd ohwmobi
    ```
 
 2. **Build the PWA**:
@@ -362,7 +362,7 @@ const CACHE_NAME = `ohw-parser-${VERSION}`;
 ### Installation Commands
 ```bash
 # Clone repository
-git clone https://github.com/haryowl/ohwmob.git
+   git clone https://github.com/haryowl/ohwmobi.git
 
 # Build PWA
 cd ohw/frontend && npm run build
@@ -378,8 +378,8 @@ npx serve -s build -l 8080
 - **Cache**: Managed by service worker
 
 ### URLs
-- **GitHub**: https://github.com/haryowl/ohwmob
-- **PWA Demo**: https://haryowl.github.io/ohwmob/
+- **GitHub**: https://github.com/haryowl/ohwmobi
+- **PWA Demo**: https://haryowl.github.io/ohwmobi/
 - **Documentation**: Check README.md
 
 ---

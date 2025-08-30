@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # 🛰️ OHW Mobile Parser - Termux One-Command Installer
-# Run this in Termux: curl -sSL https://raw.githubusercontent.com/haryowl/ohwmob/main/install-termux.sh | bash
+# Run this in Termux: curl -sSL https://raw.githubusercontent.com/haryowl/ohwmobi/main/install-termux.sh | bash
 
 set -e
 
@@ -59,7 +59,7 @@ pkg install -y nodejs git sqlite wget curl
 print_success "Dependencies installed"
 
 # Create project directory
-PROJECT_DIR="$HOME/ohwmob"
+PROJECT_DIR="$HOME/ohwmobi"
 print_info "Setting up project directory..."
 
 if [ -d "$PROJECT_DIR" ]; then
@@ -69,7 +69,7 @@ if [ -d "$PROJECT_DIR" ]; then
 else
     print_info "Cloning repository..."
     cd "$HOME"
-    git clone https://github.com/haryowl/ohwmob.git
+    git clone https://github.com/haryowl/ohwmobi.git
     cd "$PROJECT_DIR"
 fi
 
@@ -135,8 +135,8 @@ cat > ~/ohw-start.sh << 'EOF'
 echo "🚀 Starting OHW Mobile Parser..."
 
 # Find the project directory
-if [ -d "$HOME/ohwmob" ]; then
-    cd "$HOME/ohwmob"
+if [ -d "$HOME/ohwmobi" ]; then
+    cd "$HOME/ohwmobi"
 else
     echo "❌ Project directory not found"
     echo "Please run the installation script first"
@@ -221,7 +221,7 @@ else
 fi
 
 echo ""
-echo "📁 Project Directory: $HOME/ohwmob"
+echo "📁 Project Directory: $HOME/ohwmobi"
 echo "📄 Log File: $HOME/ohw-server.log"
 EOF
 

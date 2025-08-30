@@ -36,14 +36,14 @@ While Termux is the most popular solution, there are several other ways to run t
      -p 3003:3003 \
      -p 3004:3004 \
      -v /data/ohw:/app/data \
-     haryowl/ohwmob:latest
+     haryowl/ohwmobi:latest
    ```
 
 #### Option B: Using Docker for Android (Root Required)
 1. **Install Docker for Android**
 2. **Pull the image**:
    ```bash
-   docker pull haryowl/ohwmob:latest
+   docker pull haryowl/ohwmobi:latest
    ```
 3. **Run the container**:
    ```bash
@@ -51,7 +51,7 @@ While Termux is the most popular solution, there are several other ways to run t
      --name ohw-parser \
      --network host \
      -v /sdcard/ohw:/app/data \
-     haryowl/ohwmob:latest
+     haryowl/ohwmobi:latest
    ```
 
 ### Advantages
@@ -78,7 +78,7 @@ While Termux is the most popular solution, there are several other ways to run t
 
 1. **Access the PWA**:
    ```
-   https://haryowl.github.io/ohwmob/
+   https://haryowl.github.io/ohwmobi/
    ```
 
 2. **Install as PWA**:
@@ -119,8 +119,8 @@ While Termux is the most popular solution, there are several other ways to run t
 
 2. **Clone the mobile app**:
    ```bash
-   git clone https://github.com/haryowl/ohwmob.git
-   cd ohwmob
+   git clone https://github.com/haryowl/ohwmobi.git
+   cd ohwmobi
    ```
 
 3. **Install dependencies**:
@@ -158,8 +158,8 @@ While Termux is the most popular solution, there are several other ways to run t
 1. **Deploy backend to cloud**:
    ```bash
    # Deploy to Heroku, Vercel, or similar
-   git clone https://github.com/haryowl/ohwmob.git
-   cd ohw
+   git clone https://github.com/haryowl/ohwmobi.git
+   cd ohwmobi
    # Follow cloud provider instructions
    ```
 
@@ -195,7 +195,7 @@ While Termux is the most popular solution, there are several other ways to run t
 
 1. **Download APK**:
    ```
-   https://github.com/haryowl/ohwmob/releases/latest
+   https://github.com/haryowl/ohwmobi/releases/latest
    ```
 
 2. **Install APK**:
@@ -233,8 +233,8 @@ While Termux is the most popular solution, there are several other ways to run t
 1. **Minimal Termux setup**:
    ```bash
    pkg install nodejs git
-   git clone https://github.com/haryowl/ohwmob.git
-   cd ohw/backend
+   git clone https://github.com/haryowl/ohwmobi.git
+   cd ohwmobi/backend
    npm install
    ```
 
@@ -344,7 +344,7 @@ npx react-native start --reset-cache
 - **Hybrid**: Combination of above methods
 
 ### General Support:
-- **GitHub Issues**: https://github.com/haryowl/ohwmob/issues
+- **GitHub Issues**: https://github.com/haryowl/ohwmobi/issues
 - **Documentation**: Check method-specific guides
 - **Community**: Join OHW community forums
 

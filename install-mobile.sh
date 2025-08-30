@@ -31,7 +31,7 @@ if [ -d "ohw" ]; then
     git pull origin main
 else
     echo "📥 Cloning repository..."
-    git clone https://github.com/haryowl/ohwmob.git
+    git clone https://github.com/haryowl/ohwmobi.git
     cd ohw
 fi
 

@@ -5,7 +5,7 @@
 Copy and paste this command in Termux:
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/haryowl/ohwmob/main/install-termux.sh | bash
+curl -sSL https://raw.githubusercontent.com/haryowl/ohwmobi/main/install-termux.sh | bash
 ```
 
 ## 📋 What This Does
@@ -42,7 +42,7 @@ curl -sSL https://raw.githubusercontent.com/haryowl/ohwmob/main/install-termux.s
 
 - Check the [README.md](README.md) for detailed documentation
 - Review [MOBILE_QUICK_REFERENCE.md](MOBILE_QUICK_REFERENCE.md) for commands
-- Report issues on [GitHub](https://github.com/haryowl/ohwmob/issues)
+- Report issues on [GitHub](https://github.com/haryowl/ohwmobi/issues)
 
 ---
 
