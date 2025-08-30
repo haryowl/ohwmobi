@@ -575,11 +575,21 @@
                     <button class="btn btn-primary" onclick="connectSocket()">Connect</button>
                     <button class="btn btn-warning" onclick="clearData()">Clear Data</button>
                     <button class="btn btn-success" onclick="downloadData()">Download CSV</button>
+                    <button class="btn btn-info" onclick="testDataRefresh()">🔄 Test Refresh</button>
                 </div>
             </div>
 
             <div class="panel">
                 <h3>Current Data</h3>
+                <!-- Debug Info Section -->
+                <div id="debugInfo" style="margin-bottom: 15px;">
+                    <div style="background: #e8f4fd; padding: 10px; border-radius: 5px; font-size: 12px;">
+                        <strong>🔍 Debug Info:</strong><br>
+                        Status: <span id="debugStatus">Waiting for data...</span><br>
+                        Last Update: <span id="debugLastUpdate">Never</span><br>
+                        Records Count: <span id="debugRecordsCount">0</span>
+                    </div>
+                </div>
                 <div id="currentData" class="data-grid">
                     <div class="no-data">No data available. Connect to start receiving data.</div>
                 </div>
@@ -1322,8 +1332,49 @@
             }
         }
 
+        function testDataRefresh() {
+            console.log('🧪 Testing data refresh...');
+            const debugStatus = document.getElementById('debugStatus');
+            if (debugStatus) debugStatus.textContent = 'Manual refresh triggered';
+            
+            // Try to fetch latest data from API
+            fetch('/api/data/latest?limit=1')
+                .then(response => response.json())
+                .then(data => {
+                    console.log('📡 API response:', data);
+                    if (data && data.length > 0) {
+                        processData(data[0]);
+                        const debugStatus = document.getElementById('debugStatus');
+                        if (debugStatus) debugStatus.textContent = 'API refresh successful';
+                    } else {
+                        const debugStatus = document.getElementById('debugStatus');
+                        if (debugStatus) debugStatus.textContent = 'No data from API';
+                    }
+                })
+                .catch(error => {
+                    console.error('❌ API error:', error);
+                    const debugStatus = document.getElementById('debugStatus');
+                    if (debugStatus) debugStatus.textContent = 'API error: ' + error.message;
+                });
+        }
+
         function processData(data) {
             console.log('🔄 Processing device data:', data);
+            // Mobile-friendly debugging - show on screen
+            const debugInfo = document.getElementById('debugInfo');
+            if (debugInfo) {
+                debugInfo.innerHTML = `
+                    <div style="background: #f0f0f0; padding: 10px; margin: 10px 0; border-radius: 5px; font-size: 12px;">
+                        <strong>🔄 Last Data Received:</strong><br>
+                        Time: ${new Date().toLocaleTimeString()}<br>
+                        Device: ${data.deviceId || 'Unknown'}<br>
+                        IMEI: ${data.imei || 'Unknown'}<br>
+                        Lat: ${data.latitude || 'N/A'}<br>
+                        Lon: ${data.longitude || 'N/A'}
+                    </div>
+                `;
+            }
+            
             if (!data || typeof data !== 'object') {
                 console.log('❌ Invalid data received:', data);
                 return;
@@ -1341,6 +1392,15 @@
             updateStatus(true);
             updateCurrentData();
             updateMap(data);
+            
+            // Update debug info
+            const debugStatus = document.getElementById('debugStatus');
+            const debugLastUpdate = document.getElementById('debugLastUpdate');
+            const debugRecordsCount = document.getElementById('debugRecordsCount');
+            
+            if (debugStatus) debugStatus.textContent = 'Data received and processed';
+            if (debugLastUpdate) debugLastUpdate.textContent = new Date().toLocaleTimeString();
+            if (debugRecordsCount) debugRecordsCount.textContent = dataRecords.length;
         }
 
         function updateCurrentData() {
