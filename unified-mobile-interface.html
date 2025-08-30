@@ -1140,6 +1140,14 @@
                 : `http://${window.location.hostname}:3001`,
             maxRecords: 1000
         };
+        
+        // Debug configuration
+        console.log('🔧 Configuration:', {
+            hostname: window.location.hostname,
+            apiUrl: config.apiUrl,
+            socketUrl: config.socketUrl,
+            currentUrl: window.location.href
+        });
 
         // Initialize when page loads
         document.addEventListener('DOMContentLoaded', init);
@@ -1279,15 +1287,20 @@
 
         // Tracking functionality
         function connectSocket() {
+            console.log('🔌 Attempting Socket.IO connection to:', config.socketUrl);
+            
             if (socket) {
+                console.log('🔌 Closing existing Socket.IO connection');
                 socket.close();
                 return;
             }
 
             try {
+                console.log('🔌 Creating new Socket.IO connection...');
                 socket = io(config.socketUrl);
                 
                 socket.on('connect', function() {
+                    console.log('✅ Socket.IO connected successfully!');
                     updateStatus(true);
                     log('info', 'Socket connected successfully');
                 });
@@ -1298,22 +1311,33 @@
                 });
                 
                 socket.on('disconnect', function() {
+                    console.log('❌ Socket.IO disconnected');
                     updateStatus(false);
                     log('info', 'Socket disconnected');
                     socket = null;
                     setTimeout(() => {
-                        if (!socket) connectSocket();
+                        if (!socket) {
+                            console.log('🔄 Attempting to reconnect Socket.IO...');
+                            connectSocket();
+                        }
                     }, 5000);
                 });
                 
                 socket.on('connect_error', function(error) {
+                    console.log('❌ Socket.IO connection error:', error);
                     updateStatus(false);
                     log('error', 'Socket connection error: ' + error.message);
                     setTimeout(() => {
-                        if (!socket) connectSocket();
+                        if (!socket) {
+                            console.log('🔄 Attempting to reconnect Socket.IO after error...');
+                            connectSocket();
+                        }
                     }, 10000);
                 });
+                
+                console.log('🔌 Socket.IO connection setup completed');
             } catch (error) {
+                console.log('❌ Error setting up Socket.IO connection:', error);
                 log('error', 'Error connecting to Socket: ' + error.message);
                 updateStatus(false);
             }
