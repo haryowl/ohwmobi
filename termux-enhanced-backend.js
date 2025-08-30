@@ -1181,9 +1181,22 @@ function addParsedData(data, clientAddress = null) {
                 imei: latestData.imei,
                 latitude: latestData.latitude,
                 longitude: latestData.longitude,
+                speed: latestData.speed,
+                direction: latestData.direction,
+                satellites: latestData.satellites,
                 timestamp: latestData.timestamp
             });
-            io.emit('deviceData', latestData);
+            
+            // Check if there are any connected Socket.IO clients
+            const connectedClients = io.engine.clientsCount;
+            console.log(`📡 Socket.IO connected clients: ${connectedClients}`);
+            
+            if (connectedClients > 0) {
+                io.emit('deviceData', latestData);
+                console.log('✅ Device data emitted successfully');
+            } else {
+                console.log('⚠️ No Socket.IO clients connected, data not emitted');
+            }
         }
         
     } catch (error) {
@@ -1710,19 +1723,28 @@ function startHTTPServer() {
 
     // Socket.IO connection handling
     io.on('connection', (socket) => {
-        console.log('Socket.IO client connected:', socket.id);
+        console.log('🔌 Socket.IO client connected:', socket.id);
+        console.log(`📊 Total Socket.IO clients: ${io.engine.clientsCount}`);
         
         // Send current data to new client
         if (parsedData.length > 0) {
-            socket.emit('deviceData', parsedData[0]);
+            const latestData = parsedData[parsedData.length - 1];
+            console.log('📤 Sending initial data to new client:', {
+                deviceId: latestData.deviceId,
+                imei: latestData.imei,
+                latitude: latestData.latitude,
+                longitude: latestData.longitude
+            });
+            socket.emit('deviceData', latestData);
         }
         
         socket.on('disconnect', () => {
-            console.log('Socket.IO client disconnected:', socket.id);
+            console.log('🔌 Socket.IO client disconnected:', socket.id);
+            console.log(`📊 Remaining Socket.IO clients: ${io.engine.clientsCount}`);
         });
         
         socket.on('error', (error) => {
-            console.error('Socket.IO error:', error);
+            console.error('❌ Socket.IO error:', error);
         });
     });
 
