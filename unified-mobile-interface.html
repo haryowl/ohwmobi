@@ -1283,6 +1283,7 @@
                 });
                 
                 socket.on('deviceData', function(data) {
+                    console.log('📡 Received device data from Socket.IO:', data);
                     processData(data);
                 });
                 
@@ -1322,7 +1323,11 @@
         }
 
         function processData(data) {
-            if (!data || typeof data !== 'object') return;
+            console.log('🔄 Processing device data:', data);
+            if (!data || typeof data !== 'object') {
+                console.log('❌ Invalid data received:', data);
+                return;
+            }
             
             if (!data.timestamp) {
                 data.timestamp = new Date().toISOString();
@@ -1339,6 +1344,7 @@
         }
 
         function updateCurrentData() {
+            console.log('📊 Updating current data display, records count:', dataRecords.length);
             const container = document.getElementById('currentData');
             
             if (dataRecords.length === 0) {

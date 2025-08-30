@@ -1153,7 +1153,15 @@ function addParsedData(data, clientAddress = null) {
         
         // Emit to Socket.IO clients
         if (parsedData.length > 0) {
-            io.emit('deviceData', parsedData[parsedData.length - 1]);
+            const latestData = parsedData[parsedData.length - 1];
+            console.log('📡 Emitting device data to Socket.IO clients:', {
+                deviceId: latestData.deviceId,
+                imei: latestData.imei,
+                latitude: latestData.latitude,
+                longitude: latestData.longitude,
+                timestamp: latestData.timestamp
+            });
+            io.emit('deviceData', latestData);
         }
         
     } catch (error) {
