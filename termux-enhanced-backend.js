@@ -1031,6 +1031,14 @@ function addParsedData(data, clientAddress = null) {
                     continue;
                 }
                 
+                // DEBUG: Log the tags we're trying to extract
+                console.log(`🔍 DEBUG: Record ${recordIndex + 1} tags:`, Object.keys(record.tags || {}));
+                if (record.tags) {
+                    for (const [tagKey, tagData] of Object.entries(record.tags)) {
+                        console.log(`🔍 DEBUG: Tag ${tagKey}:`, tagData);
+                    }
+                }
+                
                 // Create enhanced record with all available data
                 const enhancedRecord = {
                     timestamp: new Date().toISOString(),
@@ -1096,6 +1104,20 @@ function addParsedData(data, clientAddress = null) {
                     datetime: record.tags && record.tags['0x20'] ? record.tags['0x20'].value : null,
                     milliseconds: record.tags && record.tags['0x21'] ? record.tags['0x21'].value : null
                 };
+                
+                // DEBUG: Log the extracted values
+                console.log(`🔍 DEBUG: Extracted values for record ${recordIndex + 1}:`, {
+                    latitude: enhancedRecord.latitude,
+                    longitude: enhancedRecord.longitude,
+                    speed: enhancedRecord.speed,
+                    direction: enhancedRecord.direction,
+                    height: enhancedRecord.height,
+                    satellites: enhancedRecord.satellites,
+                    supplyVoltage: enhancedRecord.supplyVoltage,
+                    batteryVoltage: enhancedRecord.batteryVoltage,
+                    temperature: enhancedRecord.temperature,
+                    status: enhancedRecord.status
+                });
                 
                 // Add to parsed data
                 parsedData.push(enhancedRecord);
