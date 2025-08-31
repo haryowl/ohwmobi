@@ -1674,12 +1674,16 @@ function handleConnection(socket) {
             let packetCount = 0;
             const maxPacketsPerData = 10; // Prevent infinite loops
             
+            console.log(`🔍 Starting packet processing - Buffer length: ${buffer.length}, Hex: ${buffer.toString('hex').toUpperCase()}`);
+            
             while (buffer.length >= 3 && packetCount < maxPacketsPerData) {  // Minimum packet size (HEAD + LENGTH)
                 packetCount++;
                 const packetType = buffer.readUInt8(0);
                 const rawLength = buffer.readUInt16LE(1);
                 const actualLength = rawLength & 0x7FFF;  // Mask with 0x7FFF
                 const totalLength = actualLength + 3;  // HEAD + LENGTH + DATA + CRC
+
+                console.log(`🔍 Processing packet ${packetCount}: Type=0x${packetType.toString(16)}, Length=${actualLength}, Total=${totalLength}, Buffer=${buffer.length}`);
 
                 // Log packet details
                 logger.info('Processing packet:', {
@@ -1738,6 +1742,7 @@ function handleConnection(socket) {
                         checksum: `0x${confirmation.slice(1).toString('hex').toUpperCase()}`,
                         timestamp: new Date().toISOString()
                     });
+                    console.log(`🔍 0x15 packet processed, remaining buffer: ${buffer.length} bytes`);
                     continue; // Skip further processing
                 }
 
@@ -1752,6 +1757,7 @@ function handleConnection(socket) {
                         checksum: `0x${confirmation.slice(1).toString('hex').toUpperCase()}`,
                         timestamp: new Date().toISOString()
                     });
+                    console.log(`🔍 Extension packet processed, remaining buffer: ${buffer.length} bytes`);
                     continue; // Skip further processing
                 }
 
@@ -1833,6 +1839,8 @@ function handleConnection(socket) {
                 }
             }
             
+            console.log(`🔍 Finished packet processing - Processed ${packetCount} packets, remaining buffer: ${buffer.length} bytes`);
+            
             // If we processed the maximum number of packets, log a warning
             if (packetCount >= maxPacketsPerData) {
                 console.warn(`⚠️ Processed maximum packets (${maxPacketsPerData}) from single data chunk, remaining buffer: ${buffer.length} bytes`);
@@ -1841,7 +1849,7 @@ function handleConnection(socket) {
             // If there's remaining buffer data, store it for next time
             if (buffer.length > 0) {
                 unsentData = Buffer.from(buffer);
-                console.log(`📦 Storing ${buffer.length} bytes for next data chunk`);
+                console.log(`📦 Storing ${buffer.length} bytes for next data chunk: ${buffer.toString('hex').toUpperCase()}`);
             }
         } catch (error) {
             logger.error('Error processing data:', {
