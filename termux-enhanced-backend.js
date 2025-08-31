@@ -1707,7 +1707,14 @@ function handleConnection(socket) {
 
                 // Extract the complete packet
                 const packet = buffer.slice(0, totalLength + 2);
+                const originalBufferLength = buffer.length;
                 buffer = buffer.slice(totalLength + 2);
+                
+                console.log(`🔍 Packet extracted: Type=0x${packetType.toString(16)}, Length=${actualLength}, Total=${totalLength + 2}`);
+                console.log(`🔍 Buffer before: ${originalBufferLength} bytes, after: ${buffer.length} bytes`);
+                if (buffer.length > 0) {
+                    console.log(`🔍 Remaining buffer: ${buffer.toString('hex').toUpperCase()}`);
+                }
 
                 // Determine packet type (following original logic)
                 const isIgnorablePacket = packetType === 0x15;
@@ -1726,19 +1733,64 @@ function handleConnection(socket) {
                 });
 
                 // Handle different packet types (following original logic)
-                if (isIgnorablePacket) {
-                    logger.info('Ignoring packet type 0x15');
-                    // Send confirmation immediately for ignorable packets
+                // Only treat small 0x15 packets as ignorable (likely just acknowledgments)
+                // Large 0x15 packets should be parsed as data
+                if (isIgnorablePacket && actualLength < 50) {
+                    logger.info('Ignoring small packet type 0x15 (likely acknowledgment)');
+                    // Send confirmation immediately for small ignorable packets
                     const packetChecksum = packet.readUInt16LE(packet.length - 2);
                     const confirmation = Buffer.from([0x02, packetChecksum & 0xFF, (packetChecksum >> 8) & 0xFF]);
                     socket.write(confirmation);
-                    logger.info('Confirmation sent for ignorable packet:', {
+                    logger.info('Confirmation sent for small ignorable packet:', {
                         address: clientAddress,
                         hex: confirmation.toString('hex').toUpperCase(),
                         checksum: `0x${confirmation.slice(1).toString('hex').toUpperCase()}`,
                         timestamp: new Date().toISOString()
                     });
+                    // Buffer already advanced by slice operation above
                     continue; // Skip further processing
+                }
+
+                // Large 0x15 packets should be treated as data packets
+                if (isIgnorablePacket && actualLength >= 50) {
+                    logger.info('Processing large 0x15 packet as data packet');
+                    // Treat large 0x15 packets as main packets for parsing
+                    try {
+                        // Parse the packet as if it were a main packet
+                        const parsedPacket = await parsePacket(packet);
+                        
+                        // Get the checksum from the received packet
+                        const packetChecksum = packet.readUInt16LE(packet.length - 2);
+                        const confirmation = Buffer.from([0x02, packetChecksum & 0xFF, (packetChecksum >> 8) & 0xFF]);
+                        
+                        // Send confirmation
+                        socket.write(confirmation);
+                        logger.info('Confirmation sent for large 0x15 packet:', {
+                            address: clientAddress,
+                            hex: confirmation.toString('hex').toUpperCase(),
+                            checksum: `0x${confirmation.slice(1).toString('hex').toUpperCase()}`
+                        });
+
+                        // Log parsed data for large 0x15 packets
+                        logger.info('Large 0x15 packet parsed successfully:', {
+                            address: clientAddress,
+                            header: `0x${parsedPacket.header.toString(16).padStart(2, '0')}`,
+                            length: parsedPacket.length,
+                            hasUnsentData: parsedPacket.hasUnsentData,
+                            deviceId: parsedPacket.deviceId || 'unknown'
+                        });
+
+                        // Buffer already advanced by slice operation above
+                        continue; // Skip further processing
+                    } catch (parseError) {
+                        logger.error('Error parsing large 0x15 packet:', parseError);
+                        // Send confirmation anyway to acknowledge receipt
+                        const packetChecksum = packet.readUInt16LE(packet.length - 2);
+                        const confirmation = Buffer.from([0x02, packetChecksum & 0xFF, (packetChecksum >> 8) & 0xFF]);
+                        socket.write(confirmation);
+                        // Buffer already advanced by slice operation above
+                        continue;
+                    }
                 }
 
                 if (isExtensionPacket) {
