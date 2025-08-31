@@ -347,8 +347,14 @@ async function sendCommandToDevice(imei, deviceNumber, commandText) {
 function getConnectedDevices() {
     const connectedDevices = [];
     
+    console.log(`🔧 getConnectedDevices called - deviceConnections size: ${deviceConnections.size}`);
+    console.log(`🔧 deviceConnections entries:`, Array.from(deviceConnections.entries()));
+    console.log(`🔧 devices map size: ${devices.size}`);
+    console.log(`🔧 devices entries:`, Array.from(devices.entries()));
+    
     for (const [imei, socket] of deviceConnections.entries()) {
         const deviceInfo = devices.get(imei);
+        console.log(`🔧 Processing device: ${imei}, deviceInfo:`, deviceInfo);
         connectedDevices.push({
             imei: imei,
             deviceNumber: deviceInfo?.deviceNumber || 0,
@@ -358,6 +364,7 @@ function getConnectedDevices() {
         });
     }
     
+    console.log(`🔧 Returning ${connectedDevices.length} connected devices:`, connectedDevices);
     return connectedDevices;
 }
 
@@ -372,6 +379,9 @@ function updateDeviceTracking(imei, clientAddress, data, socket = null) {
     if (socket && imei) {
         deviceConnections.set(imei, socket);
         console.log(`🔧 Device connection stored for IMEI: ${imei}`);
+        console.log(`🔧 deviceConnections size after storing: ${deviceConnections.size}`);
+    } else {
+        console.log(`🔧 No socket or IMEI provided - socket: ${!!socket}, imei: ${imei}`);
     }
     
     console.log(`📱 updateDeviceTracking called with IMEI: ${imei}, clientAddress: ${clientAddress}`);
@@ -2176,7 +2186,9 @@ function handleAPIRequest(req, res) {
             return;
         } else if (pathname === '/api/connected-devices' && req.method === 'GET') {
             // Get list of connected devices
+            console.log(`🔧 /api/connected-devices endpoint called`);
             const connectedDevices = getConnectedDevices();
+            console.log(`🔧 API returning ${connectedDevices.length} devices:`, connectedDevices);
             res.writeHead(200);
             res.end(JSON.stringify({ success: true, devices: connectedDevices }));
         } else if (pathname === '/api/command/responses' && req.method === 'GET') {
