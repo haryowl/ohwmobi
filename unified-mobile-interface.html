@@ -418,6 +418,24 @@
             border: 1px solid #ffeaa7;
         }
 
+        .status.connected {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            font-size: 0.85em;
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+
+        .status.recently-seen {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+            font-size: 0.85em;
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+
         .data-table {
             background: white;
             border-radius: 8px;
@@ -3902,13 +3920,15 @@
                     
                     devices.forEach(device => {
                         const lastSeen = new Date(device.lastSeen).toLocaleString();
+                        const statusClass = device.connected ? 'connected' : 'recently-seen';
+                        const statusText = device.connected ? 'Connected' : `Recently Seen (${device.lastSeenMinutes || 0}m ago)`;
                         html += `
                             <tr>
                                 <td>${device.imei}</td>
                                 <td>${device.deviceNumber}</td>
                                 <td>${lastSeen}</td>
                                 <td>${device.recordCount}</td>
-                                <td><span class="status connected">Connected</span></td>
+                                <td><span class="status ${statusClass}">${statusText}</span></td>
                             </tr>
                         `;
                     });
@@ -3978,7 +3998,11 @@
                 const result = await response.json();
                 
                 if (result.success) {
-                    log('success', `Command sent successfully! Command #${result.commandNumber}`, 'commandLog');
+                    if (result.status === 'queued') {
+                        log('warning', `Command queued! Command #${result.commandNumber} - ${result.message}`, 'commandLog');
+                    } else {
+                        log('success', `Command sent successfully! Command #${result.commandNumber}`, 'commandLog');
+                    }
                     document.getElementById('commandText').value = '';
                     // Refresh command responses after sending
                     setTimeout(() => loadCommandResponses(), 1000);
@@ -4029,7 +4053,11 @@
                 const result = await response.json();
                 
                 if (result.success) {
-                    log('success', `Quick command "${commandType}" sent successfully! Command #${result.commandNumber}`, 'commandLog');
+                    if (result.status === 'queued') {
+                        log('warning', `Quick command "${commandType}" queued! Command #${result.commandNumber} - ${result.message}`, 'commandLog');
+                    } else {
+                        log('success', `Quick command "${commandType}" sent successfully! Command #${result.commandNumber}`, 'commandLog');
+                    }
                     // Refresh command responses after sending
                     setTimeout(() => loadCommandResponses(), 1000);
                 } else {
@@ -4070,7 +4098,11 @@
                 const result = await response.json();
                 
                 if (result.success) {
-                    log('success', `Output ${outputNumber} set to ${outputValue} successfully! Command #${result.commandNumber}`, 'commandLog');
+                    if (result.status === 'queued') {
+                        log('warning', `Output ${outputNumber} command queued! Command #${result.commandNumber} - ${result.message}`, 'commandLog');
+                    } else {
+                        log('success', `Output ${outputNumber} set to ${outputValue} successfully! Command #${result.commandNumber}`, 'commandLog');
+                    }
                     // Refresh command responses after sending
                     setTimeout(() => loadCommandResponses(), 1000);
                 } else {

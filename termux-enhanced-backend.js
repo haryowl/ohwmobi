@@ -306,12 +306,52 @@ async function sendCommandToDevice(imei, deviceNumber, commandText) {
         
         // Check if device is connected
         const deviceSocket = deviceConnections.get(imei);
-        if (!deviceSocket) {
-            throw new Error(`Device with IMEI ${imei} is not connected`);
+        const deviceInfo = devices.get(imei);
+        
+        if (!deviceInfo) {
+            throw new Error(`Device with IMEI ${imei} not found in device registry`);
         }
         
-        // Build command packet
-                        const commandPacket = commandPacketBuilder.buildCommandPacket(imei, commandText);
+        // Check if device is recently active (within last 5 minutes)
+        const onlineThreshold = 5 * 60 * 1000; // 5 minutes in milliseconds
+        const now = new Date();
+        const lastSeen = new Date(deviceInfo.lastSeen);
+        const timeSinceLastSeen = now - lastSeen;
+        const isRecentlyActive = timeSinceLastSeen <= onlineThreshold;
+        
+        console.log(`🔧 Device status - hasActiveConnection: ${!!deviceSocket}, isRecentlyActive: ${isRecentlyActive}, timeSinceLastSeen: ${timeSinceLastSeen}ms`);
+        
+        if (!deviceSocket) {
+            if (isRecentlyActive) {
+                // Device is recently active but not connected - queue the command
+                const commandPacket = commandPacketBuilder.buildCommandPacket(imei, commandText);
+                
+                // Store pending command as queued
+                pendingCommands.set(commandPacket.commandNumber, {
+                    imei: imei,
+                    deviceNumber: deviceNumber,
+                    commandText: commandText,
+                    timestamp: new Date().toISOString(),
+                    status: 'queued',
+                    packet: commandPacket.packet,
+                    hexString: commandPacket.hexString
+                });
+                
+                console.log(`⏳ Command queued for device ${imei}: Command#${commandPacket.commandNumber} - will be sent when device reconnects`);
+                
+                return {
+                    success: true,
+                    commandNumber: commandPacket.commandNumber,
+                    message: 'Command queued - device is recently active but not currently connected. Command will be sent when device reconnects.',
+                    status: 'queued'
+                };
+            } else {
+                throw new Error(`Device with IMEI ${imei} is not connected and has not been seen recently (last seen: ${Math.round(timeSinceLastSeen / 60000)} minutes ago)`);
+            }
+        }
+        
+        // Device is connected - send command immediately
+        const commandPacket = commandPacketBuilder.buildCommandPacket(imei, commandText);
         
         // Store pending command
         pendingCommands.set(commandPacket.commandNumber, {
@@ -331,7 +371,8 @@ async function sendCommandToDevice(imei, deviceNumber, commandText) {
         return {
             success: true,
             commandNumber: commandPacket.commandNumber,
-            message: 'Command sent successfully'
+            message: 'Command sent successfully',
+            status: 'sent'
         };
         
     } catch (error) {
@@ -352,19 +393,31 @@ function getConnectedDevices() {
     console.log(`🔧 devices map size: ${devices.size}`);
     console.log(`🔧 devices entries:`, Array.from(devices.entries()));
     
-    for (const [imei, socket] of deviceConnections.entries()) {
-        const deviceInfo = devices.get(imei);
-        console.log(`🔧 Processing device: ${imei}, deviceInfo:`, deviceInfo);
-        connectedDevices.push({
-            imei: imei,
-            deviceNumber: 50, // Fixed device number
-            lastSeen: deviceInfo?.lastSeen || new Date().toISOString(),
-            recordCount: deviceInfo?.recordCount || 0,
-            connected: true
-        });
+    // Consider devices as "online" if they've been seen in the last 5 minutes
+    const onlineThreshold = 5 * 60 * 1000; // 5 minutes in milliseconds
+    const now = new Date();
+    
+    for (const [imei, deviceInfo] of devices.entries()) {
+        const lastSeen = new Date(deviceInfo.lastSeen);
+        const timeSinceLastSeen = now - lastSeen;
+        const isRecentlyActive = timeSinceLastSeen <= onlineThreshold;
+        const hasActiveConnection = deviceConnections.has(imei);
+        
+        console.log(`🔧 Processing device: ${imei}, lastSeen: ${deviceInfo.lastSeen}, timeSinceLastSeen: ${timeSinceLastSeen}ms, isRecentlyActive: ${isRecentlyActive}, hasActiveConnection: ${hasActiveConnection}`);
+        
+        if (isRecentlyActive) {
+            connectedDevices.push({
+                imei: imei,
+                deviceNumber: 50, // Fixed device number
+                lastSeen: deviceInfo.lastSeen,
+                recordCount: deviceInfo.recordCount || 0,
+                connected: hasActiveConnection, // true if has active TCP connection, false if recently seen but disconnected
+                lastSeenMinutes: Math.round(timeSinceLastSeen / 60000) // minutes since last seen
+            });
+        }
     }
     
-    console.log(`🔧 Returning ${connectedDevices.length} connected devices:`, connectedDevices);
+    console.log(`🔧 Returning ${connectedDevices.length} online devices:`, connectedDevices);
     return connectedDevices;
 }
 
@@ -380,6 +433,31 @@ function updateDeviceTracking(imei, clientAddress, data, socket = null) {
         deviceConnections.set(imei, socket);
         console.log(`🔧 Device connection stored for IMEI: ${imei}`);
         console.log(`🔧 deviceConnections size after storing: ${deviceConnections.size}`);
+        
+        // Check for queued commands and send them
+        const queuedCommands = Array.from(pendingCommands.entries())
+            .filter(([commandNumber, command]) => command.imei === imei && command.status === 'queued');
+        
+        if (queuedCommands.length > 0) {
+            console.log(`📤 Found ${queuedCommands.length} queued commands for device ${imei}, sending them now...`);
+            
+            for (const [commandNumber, command] of queuedCommands) {
+                try {
+                    console.log(`📤 Sending queued command #${commandNumber}: "${command.commandText}"`);
+                    socket.write(command.packet);
+                    
+                    // Update command status
+                    command.status = 'sent';
+                    command.sentAt = new Date().toISOString();
+                    
+                    console.log(`✅ Queued command #${commandNumber} sent successfully`);
+                } catch (error) {
+                    console.error(`❌ Error sending queued command #${commandNumber}:`, error);
+                    command.status = 'failed';
+                    command.error = error.message;
+                }
+            }
+        }
     } else {
         console.log(`🔧 No socket or IMEI provided - socket: ${!!socket}, imei: ${imei}`);
     }
