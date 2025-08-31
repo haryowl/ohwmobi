@@ -30,76 +30,90 @@ class CommandPacketBuilder {
         return this.commandCounter;
     }
     
-    // Build command packet according to Galileosky protocol
-    buildCommandPacket(imei, deviceNumber, commandText) {
-        try {
-            // Convert IMEI to buffer (15 bytes)
-            const imeiBuffer = Buffer.from(imei.padEnd(15, ' '), 'utf8');
-            
-            // Convert command text to CP1251 encoding
-            const commandBuffer = Buffer.from(commandText, 'cp1251');
-            
-            // Generate command number
-            const commandNumber = this.generateCommandNumber();
-            
-            // Calculate packet length
-            const packetLength = 3 + 1 + 15 + 1 + 2 + 1 + 4 + 1 + 1 + commandBuffer.length + 2; // header + length + tags + data + checksum
-            
-            // Create packet buffer
-            const packet = Buffer.alloc(packetLength);
-            let offset = 0;
-            
-            // Header (0x01)
-            packet.writeUInt8(0x01, offset);
-            offset += 1;
-            
-            // Length (2 bytes, little endian)
-            packet.writeUInt16LE(packetLength - 3, offset); // Length excludes header and length bytes
-            offset += 2;
-            
-            // Tag 0x03 - IMEI
-            packet.writeUInt8(0x03, offset);
-            offset += 1;
-            imeiBuffer.copy(packet, offset);
-            offset += 15;
-            
-            // Tag 0x04 - Device number
-            packet.writeUInt8(0x04, offset);
-            offset += 1;
-            packet.writeUInt16LE(deviceNumber || 0, offset);
-            offset += 2;
-            
-            // Tag 0xE0 - Command number
-            packet.writeUInt8(0xE0, offset);
-            offset += 1;
-            packet.writeUInt32LE(commandNumber, offset);
-            offset += 4;
-            
-            // Tag 0xE1 - Command text
-            packet.writeUInt8(0xE1, offset);
-            offset += 1;
-            packet.writeUInt8(commandBuffer.length, offset);
-            offset += 1;
-            commandBuffer.copy(packet, offset);
-            offset += commandBuffer.length;
-            
-            // Calculate CRC16 checksum
-            const checksum = this.calculateCRC16(packet.slice(0, offset));
-            packet.writeUInt16LE(checksum, offset);
-            
-            console.log(`🔧 Built command packet: IMEI=${imei}, Device=${deviceNumber}, Command="${commandText}", Length=${packetLength}, CRC=0x${checksum.toString(16).padStart(4, '0')}`);
-            
-            return {
-                packet: packet,
-                commandNumber: commandNumber,
-                hexString: packet.toString('hex')
-            };
-            
-        } catch (error) {
-            console.error('❌ Error building command packet:', error);
-            throw error;
+            // Build command packet according to Galileosky protocol
+        buildCommandPacket(imei, deviceNumber, commandText) {
+            try {
+                // Validate inputs
+                if (!imei || !commandText) {
+                    throw new Error('IMEI and command text are required');
+                }
+                
+                if (imei.length > 15) {
+                    throw new Error('IMEI too long (max 15 characters)');
+                }
+                
+                // Convert IMEI to buffer (15 bytes)
+                const imeiBuffer = Buffer.from(imei.padEnd(15, ' '), 'utf8');
+                
+                // Convert command text to UTF-8 encoding (fallback from CP1251)
+                // Note: CP1251 is not supported in Node.js by default, using UTF-8 as fallback
+                const commandBuffer = Buffer.from(commandText, 'utf8');
+                
+                if (commandBuffer.length > 255) {
+                    throw new Error('Command text too long (max 255 bytes)');
+                }
+                
+                // Generate command number
+                const commandNumber = this.generateCommandNumber();
+                
+                // Calculate packet length
+                const packetLength = 3 + 1 + 15 + 1 + 2 + 1 + 4 + 1 + 1 + commandBuffer.length + 2; // header + length + tags + data + checksum
+                
+                // Create packet buffer
+                const packet = Buffer.alloc(packetLength);
+                let offset = 0;
+                
+                // Header (0x01)
+                packet.writeUInt8(0x01, offset);
+                offset += 1;
+                
+                // Length (2 bytes, little endian)
+                packet.writeUInt16LE(packetLength - 3, offset); // Length excludes header and length bytes
+                offset += 2;
+                
+                // Tag 0x03 - IMEI
+                packet.writeUInt8(0x03, offset);
+                offset += 1;
+                imeiBuffer.copy(packet, offset);
+                offset += 15;
+                
+                // Tag 0x04 - Device number
+                packet.writeUInt8(0x04, offset);
+                offset += 1;
+                packet.writeUInt16LE(deviceNumber || 0, offset);
+                offset += 2;
+                
+                // Tag 0xE0 - Command number
+                packet.writeUInt8(0xE0, offset);
+                offset += 1;
+                packet.writeUInt32LE(commandNumber, offset);
+                offset += 4;
+                
+                // Tag 0xE1 - Command text
+                packet.writeUInt8(0xE1, offset);
+                offset += 1;
+                packet.writeUInt8(commandBuffer.length, offset);
+                offset += 1;
+                commandBuffer.copy(packet, offset);
+                offset += commandBuffer.length;
+                
+                // Calculate CRC16 checksum
+                const checksum = this.calculateCRC16(packet.slice(0, offset));
+                packet.writeUInt16LE(checksum, offset);
+                
+                console.log(`🔧 Built command packet: IMEI=${imei}, Device=${deviceNumber}, Command="${commandText}", Length=${packetLength}, CRC=0x${checksum.toString(16).padStart(4, '0')}`);
+                
+                return {
+                    packet: packet,
+                    commandNumber: commandNumber,
+                    hexString: packet.toString('hex')
+                };
+                
+            } catch (error) {
+                console.error('❌ Error building command packet:', error);
+                throw error;
+            }
         }
-    }
     
     // Calculate CRC16 for command packets
     calculateCRC16(buffer) {
@@ -141,6 +155,23 @@ class CommandPacketBuilder {
                 additionalData: null
             };
             
+            // Check if this looks like a command response by looking for 0xE0 and 0xE1 tags
+            let hasCommandTags = false;
+            let tempOffset = 3;
+            
+            while (tempOffset < buffer.length - 2) {
+                const tag = buffer.readUInt8(tempOffset);
+                if (tag === 0xE0 || tag === 0xE1) {
+                    hasCommandTags = true;
+                    break;
+                }
+                tempOffset += 1;
+            }
+            
+            if (!hasCommandTags) {
+                throw new Error('Not a command response packet (no 0xE0 or 0xE1 tags found)');
+            }
+            
             // Parse tags
             while (offset < buffer.length - 2) { // -2 for checksum
                 const tag = buffer.readUInt8(offset);
@@ -165,7 +196,7 @@ class CommandPacketBuilder {
                     case 0xE1: // Reply text
                         const textLength = buffer.readUInt8(offset);
                         offset += 1;
-                        result.replyText = buffer.slice(offset, offset + textLength).toString('cp1251');
+                        result.replyText = buffer.slice(offset, offset + textLength).toString('utf8');
                         offset += textLength;
                         break;
                         
@@ -1644,15 +1675,16 @@ function handleConnection(socket) {
                     });
 
                     // Check if this is a command response packet
-                    if (parsedPacket.header === 0x01 && parsedPacket.length > 50) {
+                    // Only check for command responses if we have pending commands
+                    if (parsedPacket.header === 0x01 && parsedPacket.length > 50 && pendingCommands.size > 0) {
                         // This might be a command response, try to parse it
                         try {
                             const commandResponse = commandPacketBuilder.parseCommandResponse(packet);
-                            if (commandResponse.replyText) {
+                            if (commandResponse.replyText && commandResponse.commandNumber) {
                                 console.log(`🔧 Command response received:`, commandResponse);
                                 
                                 // Update pending command status
-                                if (commandResponse.commandNumber && pendingCommands.has(commandResponse.commandNumber)) {
+                                if (pendingCommands.has(commandResponse.commandNumber)) {
                                     const pendingCommand = pendingCommands.get(commandResponse.commandNumber);
                                     pendingCommand.status = 'completed';
                                     pendingCommand.response = commandResponse.replyText;
