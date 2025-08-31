@@ -2166,6 +2166,21 @@ function handleAPIRequest(req, res) {
             const connectedDevices = getConnectedDevices();
             res.writeHead(200);
             res.end(JSON.stringify({ success: true, devices: connectedDevices }));
+        } else if (pathname === '/api/command/responses' && req.method === 'GET') {
+            // Get all command responses
+            const responses = Array.from(pendingCommands.entries()).map(([commandNumber, command]) => ({
+                commandNumber: commandNumber,
+                imei: command.imei,
+                deviceNumber: command.deviceNumber,
+                commandText: command.commandText,
+                status: command.status,
+                timestamp: command.timestamp,
+                response: command.response || null,
+                responseTime: command.responseTime || null
+            }));
+            
+            res.writeHead(200);
+            res.end(JSON.stringify({ success: true, responses: responses }));
         } else {
             res.writeHead(404);
             res.end(JSON.stringify({ error: 'API endpoint not found' }));

@@ -570,6 +570,23 @@
             flex: 1;
             min-width: 150px;
         }
+
+        .command-responses table {
+            font-size: 0.85em;
+        }
+
+        .command-responses td {
+            vertical-align: top;
+            word-break: break-word;
+        }
+
+        .command-responses code {
+            background: #f8f9fa;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-family: monospace;
+            font-size: 0.9em;
+        }
     </style>
 </head>
 <body>
@@ -1083,6 +1100,17 @@
             <h3>📋 Command Log</h3>
             <div id="commandLog" class="log">
                 <div class="log-entry info">Device commands initialized...</div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h3>📡 Command Responses</h3>
+            <div class="controls">
+                <button class="btn btn-primary" onclick="loadCommandResponses()">🔄 Refresh Responses</button>
+                <button class="btn btn-warning" onclick="clearCommandResponses()">🗑️ Clear Responses</button>
+            </div>
+            <div id="commandResponses" class="data-table">
+                <div class="no-data">No command responses yet. Send a command to see responses here.</div>
             </div>
         </div>
     </div>
@@ -3835,6 +3863,7 @@
             try {
                 log('info', 'Loading device commands...', 'commandLog');
                 await loadConnectedDevices();
+                await loadCommandResponses();
                 log('success', 'Device commands loaded successfully', 'commandLog');
             } catch (error) {
                 log('error', `Error loading device commands: ${error.message}`, 'commandLog');
@@ -3941,6 +3970,8 @@
                 if (result.success) {
                     log('success', `Command sent successfully! Command #${result.commandNumber}`, 'commandLog');
                     document.getElementById('commandText').value = '';
+                    // Refresh command responses after sending
+                    setTimeout(() => loadCommandResponses(), 1000);
                 } else {
                     log('error', `Failed to send command: ${result.error}`, 'commandLog');
                 }
@@ -3989,6 +4020,8 @@
                 
                 if (result.success) {
                     log('success', `Quick command "${commandType}" sent successfully! Command #${result.commandNumber}`, 'commandLog');
+                    // Refresh command responses after sending
+                    setTimeout(() => loadCommandResponses(), 1000);
                 } else {
                     log('error', `Failed to send quick command: ${result.error}`, 'commandLog');
                 }
@@ -4028,6 +4061,8 @@
                 
                 if (result.success) {
                     log('success', `Output ${outputNumber} set to ${outputValue} successfully! Command #${result.commandNumber}`, 'commandLog');
+                    // Refresh command responses after sending
+                    setTimeout(() => loadCommandResponses(), 1000);
                 } else {
                     log('error', `Failed to set output: ${result.error}`, 'commandLog');
                 }
@@ -4040,6 +4075,59 @@
             const container = document.getElementById('commandLog');
             container.innerHTML = '<div class="log-entry info">Command log cleared...</div>';
             log('info', 'Command log cleared', 'commandLog');
+        }
+
+        async function loadCommandResponses() {
+            try {
+                const response = await fetch('/api/command/responses');
+                const result = await response.json();
+                
+                if (!result.success) {
+                    throw new Error(result.error || 'Failed to load command responses');
+                }
+                
+                const responses = result.responses || [];
+                const container = document.getElementById('commandResponses');
+                
+                if (responses.length === 0) {
+                    container.innerHTML = '<div class="no-data">No command responses yet. Send a command to see responses here.</div>';
+                    return;
+                }
+                
+                let html = '<table class="data-table"><thead><tr><th>Command #</th><th>IMEI</th><th>Command</th><th>Status</th><th>Response</th><th>Time</th></tr></thead><tbody>';
+                
+                responses.forEach(response => {
+                    const statusClass = response.status === 'completed' ? 'success' : response.status === 'sent' ? 'warning' : 'error';
+                    const statusText = response.status === 'completed' ? '✅ Completed' : response.status === 'sent' ? '📤 Sent' : '❌ Failed';
+                    
+                    const timestamp = new Date(response.timestamp).toLocaleString();
+                    const responseTime = response.responseTime ? new Date(response.responseTime).toLocaleString() : '-';
+                    
+                    html += `
+                        <tr>
+                            <td>${response.commandNumber}</td>
+                            <td>${response.imei}</td>
+                            <td><code>${response.commandText}</code></td>
+                            <td><span class="status ${statusClass}">${statusText}</span></td>
+                            <td>${response.response ? `<code>${response.response}</code>` : '-'}</td>
+                            <td>${timestamp}<br><small>Response: ${responseTime}</small></td>
+                        </tr>
+                    `;
+                });
+                
+                html += '</tbody></table>';
+                container.innerHTML = html;
+                
+                log('success', `Loaded ${responses.length} command responses`, 'commandLog');
+            } catch (error) {
+                log('error', `Error loading command responses: ${error.message}`, 'commandLog');
+            }
+        }
+
+        function clearCommandResponses() {
+            const container = document.getElementById('commandResponses');
+            container.innerHTML = '<div class="no-data">Command responses cleared...</div>';
+            log('info', 'Command responses cleared', 'commandLog');
         }
     </script>
 </body>
