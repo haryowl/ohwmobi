@@ -1857,8 +1857,10 @@ function handleAPIRequest(req, res) {
             res.writeHead(200);
             res.end(JSON.stringify(deviceList));
         } else if (pathname === '/api/network-info') {
+            // Get current IP address dynamically
+            const currentIP = getIpAddress();
             const networkInfo = {
-                localIP: ipAddress,
+                localIP: currentIP,
                 hostname: require('os').hostname(),
                 platform: process.platform,
                 nodeVersion: process.version,

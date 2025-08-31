@@ -1285,6 +1285,32 @@
             
             // Check offline map availability
             checkOfflineMapAvailability();
+            
+            // Set up network change detection
+            setupNetworkChangeDetection();
+        }
+
+        // Network change detection
+        function setupNetworkChangeDetection() {
+            // Listen for online/offline events
+            window.addEventListener('online', () => {
+                console.log('🌐 Network connection restored');
+                if (document.getElementById('device-management').classList.contains('active')) {
+                    loadServerInfo();
+                }
+            });
+            
+            window.addEventListener('offline', () => {
+                console.log('🌐 Network connection lost');
+            });
+            
+            // Listen for visibility change (when user returns to the app)
+            document.addEventListener('visibilitychange', () => {
+                if (!document.hidden && document.getElementById('device-management').classList.contains('active')) {
+                    console.log('📱 App became visible, refreshing IP info');
+                    loadServerInfo();
+                }
+            });
         }
 
                  function initializeMap() {
@@ -2612,12 +2638,16 @@
             } else if (tabName === 'peer-sync') {
                 // Refresh peer list
                 updatePeerList();
-                         } else if (tabName === 'device-management') {
-                 loadDevices();
-                 loadDeviceGroups();
-                 loadServerInfo();
-                 startIPAutoRefresh(); // Start auto-refresh when device management tab is opened
-             } else if (tabName === 'data-export') {
+                         } else if (tabName === 'device-commands') {
+                loadDeviceCommands();
+            } else if (tabName === 'device-management') {
+                loadDevices();
+                loadDeviceGroups();
+                // Force refresh IP when device management tab is opened
+                loadServerInfo();
+                // Start enhanced IP monitoring for better IP change detection
+                startEnhancedIPMonitoring();
+            } else if (tabName === 'data-export') {
                 loadExportDevices();
             } else if (tabName === 'data-sm') {
                 loadExportDevices();
@@ -2782,13 +2812,23 @@
                 let actualIP = serverIP;
                 let externalIP = null;
                 
-                // First try to get local network IP from server API
+                // First try to get local network IP from server API (with timeout)
                 try {
-                    const response = await fetch(`${config.apiUrl}/api/network-info`);
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+                    
+                    const response = await fetch(`${config.apiUrl}/api/network-info`, {
+                        signal: controller.signal,
+                        cache: 'no-cache' // Prevent caching
+                    });
+                    
+                    clearTimeout(timeoutId);
+                    
                     if (response.ok) {
                         const networkInfo = await response.json();
                         if (networkInfo.localIP && networkInfo.localIP !== 'localhost' && networkInfo.localIP !== '127.0.0.1') {
                             actualIP = networkInfo.localIP;
+                            console.log('✅ Got IP from server API:', actualIP);
                         }
                     }
                 } catch (error) {
@@ -2882,6 +2922,26 @@
         function refreshServerInfo() {
             loadServerInfo();
             log('info', 'Manual IP refresh triggered', 'deviceManagementLog');
+        }
+
+        // Enhanced IP monitoring function
+        function startEnhancedIPMonitoring() {
+            // Check IP every 10 seconds for the first minute, then every 30 seconds
+            let checkCount = 0;
+            const initialInterval = setInterval(() => {
+                checkCount++;
+                loadServerInfo();
+                
+                if (checkCount >= 6) { // After 1 minute (6 * 10 seconds)
+                    clearInterval(initialInterval);
+                    // Switch to 30-second intervals
+                    if (!ipUpdateInterval) {
+                        startIPAutoRefresh();
+                    }
+                }
+            }, 10000); // 10 seconds
+            
+            log('info', 'Enhanced IP monitoring started (10s intervals for first minute)', 'deviceManagementLog');
         }
 
          function copyServerURL() {
