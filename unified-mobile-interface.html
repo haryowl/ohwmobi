@@ -3874,14 +3874,18 @@
 
         async function loadConnectedDevices() {
             try {
+                console.log('🔧 Frontend: Loading connected devices...');
                 const response = await fetch('/api/connected-devices');
                 const result = await response.json();
+                
+                console.log('🔧 Frontend: API response:', result);
                 
                 if (!result.success) {
                     throw new Error(result.error || 'Failed to load connected devices');
                 }
                 
                 const devices = result.devices || [];
+                console.log('🔧 Frontend: Devices array:', devices);
                 const container = document.getElementById('connectedDevicesList');
                 const commandDeviceSelect = document.getElementById('commandDevice');
                 

@@ -357,7 +357,7 @@ function getConnectedDevices() {
         console.log(`🔧 Processing device: ${imei}, deviceInfo:`, deviceInfo);
         connectedDevices.push({
             imei: imei,
-            deviceNumber: deviceInfo?.deviceNumber || 0,
+            deviceNumber: 50, // Fixed device number
             lastSeen: deviceInfo?.lastSeen || new Date().toISOString(),
             recordCount: deviceInfo?.recordCount || 0,
             connected: true
@@ -394,6 +394,7 @@ function updateDeviceTracking(imei, clientAddress, data, socket = null) {
             lastSeen: new Date().toISOString(),
             recordCount: 0,
             totalRecords: 0,
+            deviceNumber: 50, // Fixed device number
             clientAddress: clientAddress,
             lastLocation: null
         });
