@@ -2188,10 +2188,17 @@ function handleAPIRequest(req, res) {
         } else if (pathname === '/api/connected-devices' && req.method === 'GET') {
             // Get list of connected devices
             console.log(`🔧 /api/connected-devices endpoint called`);
+            console.log(`🔧 Request headers:`, req.headers);
+            console.log(`🔧 Request URL:`, req.url);
+            
             const connectedDevices = getConnectedDevices();
             console.log(`🔧 API returning ${connectedDevices.length} devices:`, connectedDevices);
-            res.writeHead(200);
-            res.end(JSON.stringify({ success: true, devices: connectedDevices }));
+            
+            const response = { success: true, devices: connectedDevices };
+            console.log(`🔧 Sending response:`, JSON.stringify(response, null, 2));
+            
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(response));
         } else if (pathname === '/api/command/responses' && req.method === 'GET') {
             // Get all command responses
             const responses = Array.from(pendingCommands.entries()).map(([commandNumber, command]) => ({
@@ -2207,6 +2214,11 @@ function handleAPIRequest(req, res) {
             
             res.writeHead(200);
             res.end(JSON.stringify({ success: true, responses: responses }));
+        } else if (pathname === '/api/test' && req.method === 'GET') {
+            // Simple test endpoint
+            console.log(`🔧 /api/test endpoint called`);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: true, message: 'API is working', timestamp: new Date().toISOString() }));
         } else if (pathname === '/api/command/test' && req.method === 'GET') {
             // Test command packet generation
                     const testIMEI = '861774058687730';

@@ -3875,9 +3875,13 @@
         async function loadConnectedDevices() {
             try {
                 console.log('🔧 Frontend: Loading connected devices...');
-                const response = await fetch('/api/connected-devices');
-                const result = await response.json();
+                console.log('🔧 Frontend: Making fetch request to /api/connected-devices');
                 
+                const response = await fetch('/api/connected-devices');
+                console.log('🔧 Frontend: Response status:', response.status);
+                console.log('🔧 Frontend: Response headers:', response.headers);
+                
+                const result = await response.json();
                 console.log('🔧 Frontend: API response:', result);
                 
                 if (!result.success) {
