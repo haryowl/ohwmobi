@@ -31,7 +31,7 @@ class CommandPacketBuilder {
     }
     
             // Build command packet according to Galileosky protocol
-        buildCommandPacket(imei, deviceNumber, commandText) {
+        buildCommandPacket(imei, commandText) {
             try {
                 // Validate inputs
                 if (!imei || !commandText) {
@@ -53,8 +53,11 @@ class CommandPacketBuilder {
                     throw new Error('Command text too long (max 255 bytes)');
                 }
                 
-                // Generate command number
+                // Generate command number (sequential)
                 const commandNumber = this.generateCommandNumber();
+                
+                // Fixed device number: 50
+                const deviceNumber = 50;
                 
                 // Calculate packet length
                 const packetLength = 3 + 1 + 15 + 1 + 2 + 1 + 4 + 1 + 1 + commandBuffer.length + 2; // header + length + tags + data + checksum
@@ -77,10 +80,10 @@ class CommandPacketBuilder {
                 imeiBuffer.copy(packet, offset);
                 offset += 15;
                 
-                // Tag 0x04 - Device number
+                // Tag 0x04 - Device number (fixed to 50)
                 packet.writeUInt8(0x04, offset);
                 offset += 1;
-                packet.writeUInt16LE(deviceNumber || 0, offset);
+                packet.writeUInt16LE(deviceNumber, offset);
                 offset += 2;
                 
                 // Tag 0xE0 - Command number
@@ -103,14 +106,14 @@ class CommandPacketBuilder {
                 
                 console.log(`🔧 Built command packet: IMEI=${imei}, Device=${deviceNumber}, Command="${commandText}", Length=${packetLength}, CRC=0x${checksum.toString(16).padStart(4, '0')}`);
                 console.log(`🔧 Command packet hex: ${packet.toString('hex').toUpperCase()}`);
-                console.log(`🔧 Command packet breakdown:`);
-                console.log(`   Header: 0x${packet.readUInt8(0).toString(16).padStart(2, '0').toUpperCase()}`);
-                console.log(`   Length: 0x${packet.readUInt16LE(1).toString(16).padStart(4, '0').toUpperCase()}`);
-                console.log(`   Tag 0x03 (IMEI): 0x${packet.readUInt8(3).toString(16).padStart(2, '0').toUpperCase()} ${packet.slice(4, 19).toString('hex').toUpperCase()}`);
-                console.log(`   Tag 0x04 (Device): 0x${packet.readUInt8(19).toString(16).padStart(2, '0').toUpperCase()} ${packet.readUInt16LE(20).toString(16).padStart(4, '0').toUpperCase()}`);
-                console.log(`   Tag 0xE0 (Cmd#): 0x${packet.readUInt8(22).toString(16).padStart(2, '0').toUpperCase()} ${packet.readUInt32LE(23).toString(16).padStart(8, '0').toUpperCase()}`);
-                console.log(`   Tag 0xE1 (Text): 0x${packet.readUInt8(27).toString(16).padStart(2, '0').toUpperCase()} ${packet.readUInt8(28).toString(16).padStart(2, '0').toUpperCase()} ${packet.slice(29, 29 + commandBuffer.length).toString('hex').toUpperCase()}`);
-                console.log(`   CRC: 0x${checksum.toString(16).padStart(4, '0').toUpperCase()}`);
+                console.log(`🔧 Command packet breakdown (Expected Format):`);
+                console.log(`   Header: ${packet.readUInt8(0).toString(16).padStart(2, '0').toUpperCase()}`);
+                console.log(`   Length: ${packet.readUInt16LE(1).toString(16).padStart(4, '0').toUpperCase()} (${packetLength - 3} bytes, little endian)`);
+                console.log(`   Tag 0x03 (IMEI): ${packet.readUInt8(3).toString(16).padStart(2, '0').toUpperCase()} ${packet.slice(4, 19).toString('hex').toUpperCase()} (15 bytes)`);
+                console.log(`   Tag 0x04 (Device): ${packet.readUInt8(19).toString(16).padStart(2, '0').toUpperCase()} ${packet.readUInt16LE(20).toString(16).padStart(4, '0').toUpperCase()} (device number ${deviceNumber})`);
+                console.log(`   Tag 0xE0 (Cmd#): ${packet.readUInt8(22).toString(16).padStart(2, '0').toUpperCase()} ${packet.readUInt32LE(23).toString(16).padStart(8, '0').toUpperCase()} (command number ${commandNumber})`);
+                console.log(`   Tag 0xE1 (Text): ${packet.readUInt8(27).toString(16).padStart(2, '0').toUpperCase()} ${packet.readUInt8(28).toString(16).padStart(2, '0').toUpperCase()} ${packet.slice(29, 29 + commandBuffer.length).toString('hex').toUpperCase()} (length ${commandBuffer.length} + "${commandText}")`);
+                console.log(`   CRC: ${checksum.toString(16).padStart(4, '0').toUpperCase()} (calculated)`);
                 
                 return {
                     packet: packet,
@@ -308,7 +311,7 @@ async function sendCommandToDevice(imei, deviceNumber, commandText) {
         }
         
         // Build command packet
-        const commandPacket = commandPacketBuilder.buildCommandPacket(imei, deviceNumber, commandText);
+                        const commandPacket = commandPacketBuilder.buildCommandPacket(imei, commandText);
         
         // Store pending command
         pendingCommands.set(commandPacket.commandNumber, {
@@ -2193,23 +2196,31 @@ function handleAPIRequest(req, res) {
             res.end(JSON.stringify({ success: true, responses: responses }));
         } else if (pathname === '/api/command/test' && req.method === 'GET') {
             // Test command packet generation
-            const testIMEI = '861774058687730';
-            const testDeviceNumber = 0;
-            const testCommand = 'status';
+                    const testIMEI = '861774058687730';
+        const testCommand = 'status';
             
             try {
-                const testPacket = commandPacketBuilder.buildCommandPacket(testIMEI, testDeviceNumber, testCommand);
+                const testPacket = commandPacketBuilder.buildCommandPacket(testIMEI, testCommand);
                 
                 res.writeHead(200);
                 res.end(JSON.stringify({
                     success: true,
                     test: {
                         imei: testIMEI,
-                        deviceNumber: testDeviceNumber,
+                        deviceNumber: 50, // Fixed device number
                         command: testCommand,
                         hexPacket: testPacket.hexString.toUpperCase(),
                         commandNumber: testPacket.commandNumber,
-                        expectedFormat: '01 20 00 03 38 36 38 32 30 34 30 30 35 36 34 37 38 33 38 04 00 00 E0 00 00 00 00 E1 06 73 74 61 74 75 73 50 22'
+                        expectedFormat: {
+                            header: '01',
+                            length: '20 00 (32 bytes, little endian)',
+                            tag03_imei: '03 38 36 38 32 30 34 30 30 35 36 34 37 38 33 38 (15 bytes)',
+                            tag04_device: '04 32 00 (device number 50)',
+                            tagE0_cmd: `E0 ${testPacket.commandNumber.toString(16).padStart(8, '0').match(/.{2}/g).join(' ').toUpperCase()} (command number ${testPacket.commandNumber})`,
+                            tagE1_text: 'E1 06 73 74 61 74 75 73 (length 6 + "status")',
+                            crc: 'XX XX (calculated)'
+                        },
+                        note: 'Device number is now fixed to 50, command numbers are sequential'
                     }
                 }));
             } catch (error) {

@@ -1056,8 +1056,10 @@
                 <input type="text" id="commandText" class="form-control" placeholder="Enter command (e.g., status, reset, get_config)" />
             </div>
             <div class="input-group">
-                <label for="deviceNumber">Device Number (optional):</label>
-                <input type="number" id="deviceNumber" class="form-control" placeholder="0" value="0" min="0" max="65535" />
+                <label>Device Number:</label>
+                <div class="form-control" style="background-color: #f8f9fa; color: #6c757d; cursor: not-allowed;">
+                    Fixed to 50 (system setting)
+                </div>
             </div>
             <div class="controls">
                 <button class="btn btn-primary" onclick="sendDeviceCommand()">🚀 Send Command</button>
@@ -3935,10 +3937,10 @@
             }
         }
 
-        async function sendDeviceCommand() {
-            const imei = document.getElementById('commandDevice').value;
-            const commandText = document.getElementById('commandText').value.trim();
-            const deviceNumber = parseInt(document.getElementById('deviceNumber').value) || 0;
+        async     function sendDeviceCommand() {
+        const imei = document.getElementById('commandDevice').value;
+        const commandText = document.getElementById('commandText').value.trim();
+        const deviceNumber = 50; // Fixed device number
             
             if (!imei) {
                 log('error', 'Please select a device', 'commandLog');
@@ -3982,7 +3984,7 @@
 
         async function sendQuickCommand(commandType) {
             const imei = document.getElementById('commandDevice').value;
-            const deviceNumber = parseInt(document.getElementById('deviceNumber').value) || 0;
+            const deviceNumber = 50; // Fixed device number
             
             if (!imei) {
                 log('error', 'Please select a device first', 'commandLog');
@@ -4032,7 +4034,7 @@
 
         async function setOutputs() {
             const imei = document.getElementById('commandDevice').value;
-            const deviceNumber = parseInt(document.getElementById('deviceNumber').value) || 0;
+            const deviceNumber = 50; // Fixed device number
             const outputNumber = parseInt(document.getElementById('outputNumber').value) || 0;
             const outputValue = parseInt(document.getElementById('outputValue').value) || 0;
             
