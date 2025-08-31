@@ -1689,11 +1689,6 @@ function handleConnection(socket) {
                     totalLength,
                     bufferLength: buffer.length
                 });
-                
-                // Log ignorable packets (0x15) for debugging
-                if (packetType === 0x15) {
-                    console.log(`🔍 IGNORABLE PACKET (0x15) DETECTED - Length: ${actualLength}, Total: ${totalLength}, Buffer: ${buffer.length}`);
-                }
 
                 // Safety check for reasonable packet length
                 if (actualLength > 10000) {
@@ -1714,6 +1709,53 @@ function handleConnection(socket) {
                 const packet = buffer.slice(0, totalLength + 2);
                 buffer = buffer.slice(totalLength + 2);
 
+                // Determine packet type (following original logic)
+                const isIgnorablePacket = packetType === 0x15;
+                const isExtensionPacket = packetType !== 0x01 && !isIgnorablePacket;
+
+                // Log packet details
+                logger.info('Packet details:', {
+                    address: clientAddress,
+                    type: `0x${packetType.toString(16).padStart(2, '0')}`,
+                    packetType: isIgnorablePacket ? 'Ignored' : (isExtensionPacket ? 'Extension' : 'Main Packet'),
+                    length: actualLength,
+                    totalLength,
+                    bufferLength: buffer.length,
+                    hasUnsentData: buffer.length > 0,
+                    timestamp: new Date().toISOString()
+                });
+
+                // Handle different packet types (following original logic)
+                if (isIgnorablePacket) {
+                    logger.info('Ignoring packet type 0x15');
+                    // Send confirmation immediately for ignorable packets
+                    const packetChecksum = packet.readUInt16LE(packet.length - 2);
+                    const confirmation = Buffer.from([0x02, packetChecksum & 0xFF, (packetChecksum >> 8) & 0xFF]);
+                    socket.write(confirmation);
+                    logger.info('Confirmation sent for ignorable packet:', {
+                        address: clientAddress,
+                        hex: confirmation.toString('hex').toUpperCase(),
+                        checksum: `0x${confirmation.slice(1).toString('hex').toUpperCase()}`,
+                        timestamp: new Date().toISOString()
+                    });
+                    continue; // Skip further processing
+                }
+
+                if (isExtensionPacket) {
+                    // Handle extension packet immediately
+                    const packetChecksum = packet.readUInt16LE(packet.length - 2);
+                    const confirmation = Buffer.from([0x02, packetChecksum & 0xFF, (packetChecksum >> 8) & 0xFF]);
+                    socket.write(confirmation);
+                    logger.info('Confirmation sent for extension packet:', {
+                        address: clientAddress,
+                        hex: confirmation.toString('hex').toUpperCase(),
+                        checksum: `0x${confirmation.slice(1).toString('hex').toUpperCase()}`,
+                        timestamp: new Date().toISOString()
+                    });
+                    continue; // Skip further processing
+                }
+
+                // Only main packets (0x01) go through parsing
                 try {
                     // Parse the packet
                     const parsedPacket = await parsePacket(packet);
@@ -1730,15 +1772,8 @@ function handleConnection(socket) {
                         checksum: `0x${confirmation.slice(1).toString('hex').toUpperCase()}`
                     });
 
-                    // Handle different packet types (following original logic)
-                    if (parsedPacket.type === 'ignorable') {
-                        // Ignorable packet (0x15) - just acknowledge and discard
-                        logger.info('Ignoring packet type 0x15 (ignorable packet)');
-                        continue; // Skip further processing
-                    }
-
-                    // Log parsed data for non-ignorable packets
-                    logger.info('Packet parsed successfully:', {
+                    // Log parsed data for main packets
+                    logger.info('Main packet parsed successfully:', {
                         address: clientAddress,
                         header: `0x${parsedPacket.header.toString(16).padStart(2, '0')}`,
                         length: parsedPacket.length,
@@ -1770,10 +1805,8 @@ function handleConnection(socket) {
                         }
                     }
 
-                    // Add to storage for frontend (only for main packets)
-                    if (parsedPacket.type !== 'ignorable') {
-                        addParsedData(parsedPacket, clientAddress, socket);
-                    }
+                    // Add to storage for frontend (main packets only)
+                    addParsedData(parsedPacket, clientAddress, socket);
 
                 } catch (error) {
                     logger.error('Error processing packet:', {
