@@ -56,7 +56,7 @@ class CommandPacketBuilder {
                 // Generate command number (sequential)
                 const commandNumber = this.generateCommandNumber();
                 
-                // Fixed device number: 50
+                // Fixed device number: 50 (as per user specification)
                 const deviceNumber = 50;
                 
                 // Calculate packet length
@@ -428,29 +428,33 @@ function updateDeviceTracking(imei, clientAddress, data, socket = null) {
         connectionToIMEI.set(clientAddress, imei);
     }
     
-    // Store socket connection for command sending
-    if (socket && imei) {
+    // Store socket connection for command sending (only if socket is provided and valid)
+    if (socket && imei && socket.writable) {
         deviceConnections.set(imei, socket);
         console.log(`🔧 Device connection stored for IMEI: ${imei}`);
         console.log(`🔧 deviceConnections size after storing: ${deviceConnections.size}`);
         
-        // Check for queued commands and send them
+        // Check for queued commands and send them (only if socket is still valid)
         const queuedCommands = Array.from(pendingCommands.entries())
             .filter(([commandNumber, command]) => command.imei === imei && command.status === 'queued');
         
-        if (queuedCommands.length > 0) {
+        if (queuedCommands.length > 0 && socket.writable) {
             console.log(`📤 Found ${queuedCommands.length} queued commands for device ${imei}, sending them now...`);
             
             for (const [commandNumber, command] of queuedCommands) {
                 try {
-                    console.log(`📤 Sending queued command #${commandNumber}: "${command.commandText}"`);
-                    socket.write(command.packet);
-                    
-                    // Update command status
-                    command.status = 'sent';
-                    command.sentAt = new Date().toISOString();
-                    
-                    console.log(`✅ Queued command #${commandNumber} sent successfully`);
+                    if (socket.writable) {
+                        console.log(`📤 Sending queued command #${commandNumber}: "${command.commandText}"`);
+                        socket.write(command.packet);
+                        
+                        // Update command status
+                        command.status = 'sent';
+                        command.sentAt = new Date().toISOString();
+                        
+                        console.log(`✅ Queued command #${commandNumber} sent successfully`);
+                    } else {
+                        console.log(`⚠️ Socket not writable for queued command #${commandNumber}, keeping as queued`);
+                    }
                 } catch (error) {
                     console.error(`❌ Error sending queued command #${commandNumber}:`, error);
                     command.status = 'failed';
@@ -459,7 +463,11 @@ function updateDeviceTracking(imei, clientAddress, data, socket = null) {
             }
         }
     } else {
-        console.log(`🔧 No socket or IMEI provided - socket: ${!!socket}, imei: ${imei}`);
+        if (socket && !socket.writable) {
+            console.log(`🔧 Socket provided but not writable for IMEI: ${imei}`);
+        } else {
+            console.log(`🔧 No socket or IMEI provided - socket: ${!!socket}, imei: ${imei}`);
+        }
     }
     
     console.log(`📱 updateDeviceTracking called with IMEI: ${imei}, clientAddress: ${clientAddress}`);
@@ -724,18 +732,18 @@ const tagDefinitions = {
     '0x0010': { type: 'uint32_modbus', description: 'Modbus 15' }
 };
 
-// Packet type handler
+// Packet type handler (following original logic)
 class PacketTypeHandler {
     static isMainPacket(packetType) {
         return packetType === 0x01;
     }
 
-    static isDataPacket(packetType) {
-        return packetType === 0x01 || packetType === 0x15; // Both 0x01 and 0x15 contain data
+    static isIgnorablePacket(packetType) {
+        return packetType === 0x15;
     }
 
-    static isIgnorablePacket(packetType) {
-        return false; // No packets are truly ignorable - they all contain data
+    static isExtensionPacket(packetType) {
+        return !this.isMainPacket(packetType) && !this.isIgnorablePacket(packetType);
     }
 }
 
@@ -975,10 +983,10 @@ async function parseMainPacket(buffer, offset = 0, actualLength) {
         
         console.log(`🔍 Parsing packet with header 0x${header.toString(16)}, length: ${actualLength}`);
         
-        // Special handling for 0x15 packets
+        // 0x15 packets should be handled as ignorable packets, not here
         if (header === 0x15) {
-            console.log('🔍 Processing 0x15 packet with special parsing');
-            return await parsePacket15(buffer, offset, actualLength);
+            console.log('🔍 0x15 packet should be handled as ignorable, not in parseMainPacket');
+            throw new Error('0x15 packets should be handled as ignorable packets');
         }
 
         if (actualLength < 32) {
@@ -1321,82 +1329,7 @@ async function parseMainPacket(buffer, offset = 0, actualLength) {
     }
 }
 
-// Parse 0x15 packet (special structure)
-async function parsePacket15(buffer, offset = 0, actualLength) {
-    console.log('🔍 Parsing 0x15 packet with special structure');
-    
-    const result = {
-        header: 0x15,
-        length: actualLength,
-        rawLength: actualLength,
-        records: []
-    };
-    
-    try {
-        // Skip header and length (3 bytes)
-        let currentOffset = offset + 3;
-        const endOffset = offset + actualLength;
-        
-        // Look for IMEI pattern in the packet
-        // Based on user analysis, IMEI is in the second part: 0100020303383632333131303637343038313531
-        // The IMEI starts after 0100020303 and is 15 bytes long
-        
-        console.log('🔍 Searching for IMEI pattern in 0x15 packet...');
-        
-        // Convert buffer to hex string for pattern matching
-        const hexData = buffer.toString('hex');
-        console.log('🔍 Full packet hex:', hexData);
-        
-        // Look for IMEI pattern: 0100020303 followed by 15 bytes
-        const imeiPattern = /0100020303([0-9a-f]{30})/i;
-        const match = hexData.match(imeiPattern);
-        
-        if (match) {
-            const imeiHex = match[1];
-            console.log('🔍 Found IMEI hex pattern:', imeiHex);
-            
-            // Convert hex IMEI to string
-            const imei = Buffer.from(imeiHex, 'hex').toString('utf8');
-            console.log('🔍 Extracted IMEI:', imei);
-            
-            // Create a record with the IMEI
-            const record = {
-                tags: {
-                    '0x03': {
-                        value: imei,
-                        type: 'string',
-                        description: 'IMEI'
-                    }
-                }
-            };
-            
-            result.records.push(record);
-            console.log('✅ 0x15 packet parsed successfully with IMEI:', imei);
-        } else {
-            console.log('⚠️ No IMEI pattern found in 0x15 packet');
-            
-            // Create a basic record for debugging
-            const record = {
-                tags: {
-                    '0x15_debug': {
-                        value: hexData,
-                        type: 'string',
-                        description: 'Raw 0x15 packet data'
-                    }
-                }
-            };
-            
-            result.records.push(record);
-        }
-        
-    } catch (error) {
-        console.error('❌ Error parsing 0x15 packet:', error);
-    }
-    
-    return result;
-}
-
-// Parse ignorable packet (kept for compatibility)
+// Parse ignorable packet (0x15) - following original logic
 async function parseIgnorablePacket(buffer) {
     return {
         type: 'ignorable',
@@ -1426,10 +1359,10 @@ async function parsePacket(buffer) {
         
         console.log(`Parsing packet - Type: 0x${header.toString(16)}, Length: ${actualLength}, Small packet: ${actualLength < 32}`);
         
-        // Use PacketTypeHandler to determine packet type
-        if (PacketTypeHandler.isDataPacket(header)) {
-            // This is a data packet (0x01 or 0x15) - parse it for data
-            console.log(`🔍 Parsing data packet with header 0x${header.toString(16)}`);
+        // Use PacketTypeHandler to determine packet type (following original logic)
+        if (PacketTypeHandler.isMainPacket(header)) {
+            // This is a main packet (0x01) - parse it for data
+            console.log(`🔍 Parsing main packet with header 0x${header.toString(16)}`);
             const result = await parseMainPacket(buffer, 0, actualLength);
             result.hasUnsentData = hasUnsentData;
             result.actualLength = actualLength;
@@ -1442,6 +1375,18 @@ async function parsePacket(buffer) {
             }
             
             return result;
+        } else if (PacketTypeHandler.isIgnorablePacket(header)) {
+            // This is an ignorable packet (0x15) - just acknowledge and discard
+            console.log(`🔍 Ignoring packet with header 0x${header.toString(16)} (ignorable packet)`);
+            return {
+                type: 'ignorable',
+                header: header,
+                length: buffer.readUInt16LE(1),
+                hasUnsentData,
+                actualLength,
+                rawLength,
+                raw: buffer
+            };
         } else {
             // This is an extension packet or other type
             console.log(`🔍 Processing extension packet with header 0x${header.toString(16)}`);
@@ -1726,7 +1671,11 @@ function handleConnection(socket) {
                 buffer = data;
             }
 
-            while (buffer.length >= 3) {  // Minimum packet size (HEAD + LENGTH)
+            let packetCount = 0;
+            const maxPacketsPerData = 10; // Prevent infinite loops
+            
+            while (buffer.length >= 3 && packetCount < maxPacketsPerData) {  // Minimum packet size (HEAD + LENGTH)
+                packetCount++;
                 const packetType = buffer.readUInt8(0);
                 const rawLength = buffer.readUInt16LE(1);
                 const actualLength = rawLength & 0x7FFF;  // Mask with 0x7FFF
@@ -1740,9 +1689,23 @@ function handleConnection(socket) {
                     totalLength,
                     bufferLength: buffer.length
                 });
+                
+                // Log ignorable packets (0x15) for debugging
+                if (packetType === 0x15) {
+                    console.log(`🔍 IGNORABLE PACKET (0x15) DETECTED - Length: ${actualLength}, Total: ${totalLength}, Buffer: ${buffer.length}`);
+                }
+
+                // Safety check for reasonable packet length
+                if (actualLength > 10000) {
+                    console.error(`❌ Packet length too large: ${actualLength}, discarding buffer`);
+                    buffer = Buffer.alloc(0);
+                    unsentData = Buffer.alloc(0);
+                    break;
+                }
 
                 // Check if we have a complete packet
                 if (buffer.length < totalLength + 2) {  // +2 for CRC
+                    console.log(`📦 Incomplete packet: need ${totalLength + 2} bytes, have ${buffer.length} bytes`);
                     unsentData = Buffer.from(buffer);
                     break;
                 }
@@ -1767,7 +1730,14 @@ function handleConnection(socket) {
                         checksum: `0x${confirmation.slice(1).toString('hex').toUpperCase()}`
                     });
 
-                    // Log parsed data
+                    // Handle different packet types (following original logic)
+                    if (parsedPacket.type === 'ignorable') {
+                        // Ignorable packet (0x15) - just acknowledge and discard
+                        logger.info('Ignoring packet type 0x15 (ignorable packet)');
+                        continue; // Skip further processing
+                    }
+
+                    // Log parsed data for non-ignorable packets
                     logger.info('Packet parsed successfully:', {
                         address: clientAddress,
                         header: `0x${parsedPacket.header.toString(16).padStart(2, '0')}`,
@@ -1776,8 +1746,7 @@ function handleConnection(socket) {
                         deviceId: parsedPacket.deviceId || 'unknown'
                     });
 
-                    // Check if this is a command response packet
-                    // Only check for command responses if we have pending commands
+                    // Check if this is a command response packet (only for main packets)
                     if (parsedPacket.header === 0x01 && parsedPacket.length > 50 && pendingCommands.size > 0) {
                         // This might be a command response, try to parse it
                         try {
@@ -1801,23 +1770,45 @@ function handleConnection(socket) {
                         }
                     }
 
-                    // Add to storage for frontend
-                    addParsedData(parsedPacket, clientAddress, socket);
+                    // Add to storage for frontend (only for main packets)
+                    if (parsedPacket.type !== 'ignorable') {
+                        addParsedData(parsedPacket, clientAddress, socket);
+                    }
 
                 } catch (error) {
                     logger.error('Error processing packet:', {
                         address: clientAddress,
-                        error: error.message
+                        error: error.message,
+                        packetType: `0x${packetType.toString(16).padStart(2, '0')}`,
+                        packetLength: packet.length
                     });
                     
                     // Send error confirmation
                     const errorConfirmation = Buffer.from([0x02, 0x3F, 0x00]);
-                    socket.write(errorConfirmation);
-                    logger.info('Error confirmation sent:', {
-                        address: clientAddress,
-                        hex: errorConfirmation.toString('hex').toUpperCase()
-                    });
+                    try {
+                        socket.write(errorConfirmation);
+                        logger.info('Error confirmation sent:', {
+                            address: clientAddress,
+                            hex: errorConfirmation.toString('hex').toUpperCase()
+                        });
+                    } catch (writeError) {
+                        logger.error('Failed to send error confirmation:', {
+                            address: clientAddress,
+                            error: writeError.message
+                        });
+                    }
                 }
+            }
+            
+            // If we processed the maximum number of packets, log a warning
+            if (packetCount >= maxPacketsPerData) {
+                console.warn(`⚠️ Processed maximum packets (${maxPacketsPerData}) from single data chunk, remaining buffer: ${buffer.length} bytes`);
+            }
+            
+            // If there's remaining buffer data, store it for next time
+            if (buffer.length > 0) {
+                unsentData = Buffer.from(buffer);
+                console.log(`📦 Storing ${buffer.length} bytes for next data chunk`);
             }
         } catch (error) {
             logger.error('Error processing data:', {
@@ -2310,7 +2301,7 @@ function handleAPIRequest(req, res) {
                     success: true,
                     test: {
                         imei: testIMEI,
-                        deviceNumber: 50, // Fixed device number
+                        deviceNumber: 50, // Fixed device number (as per user specification)
                         command: testCommand,
                         hexPacket: testPacket.hexString.toUpperCase(),
                         commandNumber: testPacket.commandNumber,
