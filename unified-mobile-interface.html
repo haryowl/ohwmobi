@@ -544,6 +544,32 @@
                 grid-template-columns: 1fr 1fr;
             }
         }
+
+        .quick-commands {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin: 10px 0;
+        }
+
+        .quick-commands .btn {
+            flex: 1;
+            min-width: 120px;
+            margin: 5px 0;
+        }
+
+        .output-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+            margin: 10px 0;
+        }
+
+        .output-controls .input-group {
+            flex: 1;
+            min-width: 150px;
+        }
     </style>
 </head>
 <body>
@@ -559,6 +585,7 @@
             <button class="nav-tab" onclick="showTab('data-export')">📤 Data Export</button>
             <button class="nav-tab" onclick="showTab('data-sm')">📊 Data SM</button>
             <button class="nav-tab" onclick="showTab('sm-export')">📋 SM EXPORT</button>
+            <button class="nav-tab" onclick="showTab('device-commands')">🔧 Device Commands</button>
             <button class="nav-tab" onclick="showTab('device-management')">📱 Device Management</button>
             <button class="nav-tab" onclick="showTab('peer-sync')">🔄 Peer Sync</button>
             <button class="nav-tab" onclick="showTab('data-management')">📊 Data Management</button>
@@ -977,6 +1004,85 @@
             <h3>📝 SM Export Log</h3>
             <div id="smExportLog" class="log">
                 <div class="log-entry info">SM Export initialized...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Device Commands Tab -->
+    <div id="device-commands" class="tab-content">
+        <div class="section">
+            <h3>🔧 Device Commands</h3>
+            <div class="controls">
+                <button class="btn btn-primary" onclick="loadDeviceCommands()">🔄 Refresh Devices</button>
+                <button class="btn btn-success" onclick="loadConnectedDevices()">📱 Connected Devices</button>
+                <button class="btn btn-warning" onclick="clearCommandLog()">🗑️ Clear Log</button>
+            </div>
+        </div>
+
+        <div class="section">
+            <h3>📱 Connected Devices</h3>
+            <div id="connectedDevicesList" class="data-table">
+                <div class="no-data">Loading connected devices...</div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h3>🔧 Command Interface</h3>
+            <div class="input-group">
+                <label for="commandDevice">Select Device:</label>
+                <select id="commandDevice" class="form-control" onchange="selectDeviceForCommand()">
+                    <option value="">Choose a device...</option>
+                </select>
+            </div>
+            <div class="input-group">
+                <label for="commandText">Command Text:</label>
+                <input type="text" id="commandText" class="form-control" placeholder="Enter command (e.g., status, reset, get_config)" />
+            </div>
+            <div class="input-group">
+                <label for="deviceNumber">Device Number (optional):</label>
+                <input type="number" id="deviceNumber" class="form-control" placeholder="0" value="0" min="0" max="65535" />
+            </div>
+            <div class="controls">
+                <button class="btn btn-primary" onclick="sendDeviceCommand()">🚀 Send Command</button>
+                <button class="btn btn-success" onclick="updateCustomCommand()">📝 Update Command</button>
+            </div>
+        </div>
+
+        <div class="section">
+            <h3>⚡ Quick Commands</h3>
+            <div class="quick-commands">
+                <button class="btn btn-info" onclick="sendQuickCommand('status')">📊 Status</button>
+                <button class="btn btn-warning" onclick="sendQuickCommand('reset')">🔄 Reset</button>
+                <button class="btn btn-danger" onclick="sendQuickCommand('emergency_stop')">🛑 Emergency Stop</button>
+                <button class="btn btn-success" onclick="sendQuickCommand('get_config')">⚙️ Get Config</button>
+                <button class="btn btn-primary" onclick="sendQuickCommand('get_version')">📋 Get Version</button>
+            </div>
+        </div>
+
+        <div class="section">
+            <h3>🔌 Output Control</h3>
+            <div class="output-controls">
+                <div class="input-group">
+                    <label for="outputNumber">Output Number:</label>
+                    <input type="number" id="outputNumber" class="form-control" placeholder="0" value="0" min="0" max="7" />
+                </div>
+                <div class="input-group">
+                    <label for="outputValue">Value:</label>
+                    <select id="outputValue" class="form-control">
+                        <option value="0">Off (0)</option>
+                        <option value="1">On (1)</option>
+                    </select>
+                </div>
+                <div class="controls">
+                    <button class="btn btn-success" onclick="setOutputs()">🔌 Set Output</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h3>📋 Command Log</h3>
+            <div id="commandLog" class="log">
+                <div class="log-entry info">Device commands initialized...</div>
             </div>
         </div>
     </div>
@@ -3662,6 +3768,218 @@
                 html += `<div class="log-entry ${entry.type}">[${entry.timestamp}] ${entry.message}</div>`;
             });
             container.innerHTML = html;
+        }
+
+        // Device Commands Functions
+        async function loadDeviceCommands() {
+            try {
+                log('info', 'Loading device commands...', 'commandLog');
+                await loadConnectedDevices();
+                log('success', 'Device commands loaded successfully', 'commandLog');
+            } catch (error) {
+                log('error', `Error loading device commands: ${error.message}`, 'commandLog');
+            }
+        }
+
+        async function loadConnectedDevices() {
+            try {
+                const response = await fetch('/api/connected-devices');
+                const result = await response.json();
+                
+                if (!result.success) {
+                    throw new Error(result.error || 'Failed to load connected devices');
+                }
+                
+                const devices = result.devices || [];
+                const container = document.getElementById('connectedDevicesList');
+                const commandDeviceSelect = document.getElementById('commandDevice');
+                
+                // Update connected devices list
+                if (devices.length === 0) {
+                    container.innerHTML = '<div class="no-data">No devices currently connected</div>';
+                    commandDeviceSelect.innerHTML = '<option value="">No devices available</option>';
+                } else {
+                    let html = '<table class="data-table"><thead><tr><th>IMEI</th><th>Device Number</th><th>Last Seen</th><th>Record Count</th><th>Status</th></tr></thead><tbody>';
+                    
+                    devices.forEach(device => {
+                        const lastSeen = new Date(device.lastSeen).toLocaleString();
+                        html += `
+                            <tr>
+                                <td>${device.imei}</td>
+                                <td>${device.deviceNumber}</td>
+                                <td>${lastSeen}</td>
+                                <td>${device.recordCount}</td>
+                                <td><span class="status connected">Connected</span></td>
+                            </tr>
+                        `;
+                    });
+                    
+                    html += '</tbody></table>';
+                    container.innerHTML = html;
+                    
+                    // Update command device select
+                    commandDeviceSelect.innerHTML = '<option value="">Choose a device...</option>';
+                    devices.forEach(device => {
+                        commandDeviceSelect.innerHTML += `<option value="${device.imei}">${device.imei} (Device ${device.deviceNumber})</option>`;
+                    });
+                }
+                
+                log('success', `Loaded ${devices.length} connected devices`, 'commandLog');
+            } catch (error) {
+                log('error', `Error loading connected devices: ${error.message}`, 'commandLog');
+            }
+        }
+
+        function selectDeviceForCommand() {
+            const deviceSelect = document.getElementById('commandDevice');
+            const selectedDevice = deviceSelect.value;
+            
+            if (selectedDevice) {
+                log('info', `Selected device: ${selectedDevice}`, 'commandLog');
+            }
+        }
+
+        function updateCustomCommand() {
+            const commandText = document.getElementById('commandText').value.trim();
+            if (commandText) {
+                log('info', `Command updated: ${commandText}`, 'commandLog');
+            }
+        }
+
+        async function sendDeviceCommand() {
+            const imei = document.getElementById('commandDevice').value;
+            const commandText = document.getElementById('commandText').value.trim();
+            const deviceNumber = parseInt(document.getElementById('deviceNumber').value) || 0;
+            
+            if (!imei) {
+                log('error', 'Please select a device', 'commandLog');
+                return;
+            }
+            
+            if (!commandText) {
+                log('error', 'Please enter a command', 'commandLog');
+                return;
+            }
+            
+            try {
+                log('info', `Sending command to ${imei}: ${commandText}`, 'commandLog');
+                
+                const response = await fetch('/api/command', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        imei: imei,
+                        deviceNumber: deviceNumber,
+                        commandText: commandText
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    log('success', `Command sent successfully! Command #${result.commandNumber}`, 'commandLog');
+                    document.getElementById('commandText').value = '';
+                } else {
+                    log('error', `Failed to send command: ${result.error}`, 'commandLog');
+                }
+            } catch (error) {
+                log('error', `Error sending command: ${error.message}`, 'commandLog');
+            }
+        }
+
+        async function sendQuickCommand(commandType) {
+            const imei = document.getElementById('commandDevice').value;
+            const deviceNumber = parseInt(document.getElementById('deviceNumber').value) || 0;
+            
+            if (!imei) {
+                log('error', 'Please select a device first', 'commandLog');
+                return;
+            }
+            
+            try {
+                log('info', `Sending quick command: ${commandType} to ${imei}`, 'commandLog');
+                
+                let endpoint = '/api/command';
+                let body = {
+                    imei: imei,
+                    deviceNumber: deviceNumber,
+                    commandText: commandType
+                };
+                
+                // Use specific endpoints for quick commands
+                if (commandType === 'reset') {
+                    endpoint = '/api/command/reset';
+                    body = { imei: imei, deviceNumber: deviceNumber };
+                } else if (commandType === 'emergency_stop') {
+                    endpoint = '/api/command/emergency-stop';
+                    body = { imei: imei, deviceNumber: deviceNumber };
+                }
+                
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(body)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    log('success', `Quick command "${commandType}" sent successfully! Command #${result.commandNumber}`, 'commandLog');
+                } else {
+                    log('error', `Failed to send quick command: ${result.error}`, 'commandLog');
+                }
+            } catch (error) {
+                log('error', `Error sending quick command: ${error.message}`, 'commandLog');
+            }
+        }
+
+        async function setOutputs() {
+            const imei = document.getElementById('commandDevice').value;
+            const deviceNumber = parseInt(document.getElementById('deviceNumber').value) || 0;
+            const outputNumber = parseInt(document.getElementById('outputNumber').value) || 0;
+            const outputValue = parseInt(document.getElementById('outputValue').value) || 0;
+            
+            if (!imei) {
+                log('error', 'Please select a device', 'commandLog');
+                return;
+            }
+            
+            try {
+                log('info', `Setting output ${outputNumber} to ${outputValue} for device ${imei}`, 'commandLog');
+                
+                const response = await fetch('/api/command/set-output', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        imei: imei,
+                        deviceNumber: deviceNumber,
+                        outputNumber: outputNumber,
+                        value: outputValue
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    log('success', `Output ${outputNumber} set to ${outputValue} successfully! Command #${result.commandNumber}`, 'commandLog');
+                } else {
+                    log('error', `Failed to set output: ${result.error}`, 'commandLog');
+                }
+            } catch (error) {
+                log('error', `Error setting output: ${error.message}`, 'commandLog');
+            }
+        }
+
+        function clearCommandLog() {
+            const container = document.getElementById('commandLog');
+            container.innerHTML = '<div class="log-entry info">Command log cleared...</div>';
+            log('info', 'Command log cleared', 'commandLog');
         }
     </script>
 </body>

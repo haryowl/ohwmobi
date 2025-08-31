@@ -18,6 +18,181 @@ const { networkInterfaces } = require('os');
 // Import peer sync service
 const PeerToPeerSync = require('./backend/src/services/peerToPeerSync');
 
+// Command Packet Builder for Galileosky devices
+class CommandPacketBuilder {
+    constructor() {
+        this.commandCounter = 0;
+    }
+    
+    // Generate a unique command number
+    generateCommandNumber() {
+        this.commandCounter = (this.commandCounter + 1) % 0xFFFFFFFF;
+        return this.commandCounter;
+    }
+    
+    // Build command packet according to Galileosky protocol
+    buildCommandPacket(imei, deviceNumber, commandText) {
+        try {
+            // Convert IMEI to buffer (15 bytes)
+            const imeiBuffer = Buffer.from(imei.padEnd(15, ' '), 'utf8');
+            
+            // Convert command text to CP1251 encoding
+            const commandBuffer = Buffer.from(commandText, 'cp1251');
+            
+            // Generate command number
+            const commandNumber = this.generateCommandNumber();
+            
+            // Calculate packet length
+            const packetLength = 3 + 1 + 15 + 1 + 2 + 1 + 4 + 1 + 1 + commandBuffer.length + 2; // header + length + tags + data + checksum
+            
+            // Create packet buffer
+            const packet = Buffer.alloc(packetLength);
+            let offset = 0;
+            
+            // Header (0x01)
+            packet.writeUInt8(0x01, offset);
+            offset += 1;
+            
+            // Length (2 bytes, little endian)
+            packet.writeUInt16LE(packetLength - 3, offset); // Length excludes header and length bytes
+            offset += 2;
+            
+            // Tag 0x03 - IMEI
+            packet.writeUInt8(0x03, offset);
+            offset += 1;
+            imeiBuffer.copy(packet, offset);
+            offset += 15;
+            
+            // Tag 0x04 - Device number
+            packet.writeUInt8(0x04, offset);
+            offset += 1;
+            packet.writeUInt16LE(deviceNumber || 0, offset);
+            offset += 2;
+            
+            // Tag 0xE0 - Command number
+            packet.writeUInt8(0xE0, offset);
+            offset += 1;
+            packet.writeUInt32LE(commandNumber, offset);
+            offset += 4;
+            
+            // Tag 0xE1 - Command text
+            packet.writeUInt8(0xE1, offset);
+            offset += 1;
+            packet.writeUInt8(commandBuffer.length, offset);
+            offset += 1;
+            commandBuffer.copy(packet, offset);
+            offset += commandBuffer.length;
+            
+            // Calculate CRC16 checksum
+            const checksum = this.calculateCRC16(packet.slice(0, offset));
+            packet.writeUInt16LE(checksum, offset);
+            
+            console.log(`🔧 Built command packet: IMEI=${imei}, Device=${deviceNumber}, Command="${commandText}", Length=${packetLength}, CRC=0x${checksum.toString(16).padStart(4, '0')}`);
+            
+            return {
+                packet: packet,
+                commandNumber: commandNumber,
+                hexString: packet.toString('hex')
+            };
+            
+        } catch (error) {
+            console.error('❌ Error building command packet:', error);
+            throw error;
+        }
+    }
+    
+    // Calculate CRC16 for command packets
+    calculateCRC16(buffer) {
+        let crc = 0xFFFF;
+        for (let i = 0; i < buffer.length; i++) {
+            crc ^= buffer[i];
+            for (let j = 0; j < 8; j++) {
+                if (crc & 0x0001) {
+                    crc = (crc >> 1) ^ 0xA001;
+                } else {
+                    crc = crc >> 1;
+                }
+            }
+        }
+        return crc;
+    }
+    
+    // Parse command response packet
+    parseCommandResponse(buffer) {
+        try {
+            if (buffer.length < 3) {
+                throw new Error('Response packet too short');
+            }
+            
+            const header = buffer.readUInt8(0);
+            if (header !== 0x01) {
+                throw new Error(`Invalid response header: 0x${header.toString(16)}`);
+            }
+            
+            const length = buffer.readUInt16LE(1);
+            console.log(`🔧 Parsing command response: length=${length}`);
+            
+            let offset = 3;
+            const result = {
+                imei: null,
+                deviceNumber: null,
+                commandNumber: null,
+                replyText: null,
+                additionalData: null
+            };
+            
+            // Parse tags
+            while (offset < buffer.length - 2) { // -2 for checksum
+                const tag = buffer.readUInt8(offset);
+                offset += 1;
+                
+                switch (tag) {
+                    case 0x03: // IMEI
+                        result.imei = buffer.slice(offset, offset + 15).toString('utf8').trim();
+                        offset += 15;
+                        break;
+                        
+                    case 0x04: // Device number
+                        result.deviceNumber = buffer.readUInt16LE(offset);
+                        offset += 2;
+                        break;
+                        
+                    case 0xE0: // Command number
+                        result.commandNumber = buffer.readUInt32LE(offset);
+                        offset += 4;
+                        break;
+                        
+                    case 0xE1: // Reply text
+                        const textLength = buffer.readUInt8(offset);
+                        offset += 1;
+                        result.replyText = buffer.slice(offset, offset + textLength).toString('cp1251');
+                        offset += textLength;
+                        break;
+                        
+                    case 0xEB: // Additional data
+                        const dataLength = buffer.readUInt8(offset);
+                        offset += 1;
+                        result.additionalData = buffer.slice(offset, offset + dataLength);
+                        offset += dataLength;
+                        break;
+                        
+                    default:
+                        console.log(`⚠️ Unknown tag in response: 0x${tag.toString(16)}`);
+                        offset += 1; // Skip unknown tag
+                        break;
+                }
+            }
+            
+            console.log(`✅ Command response parsed:`, result);
+            return result;
+            
+        } catch (error) {
+            console.error('❌ Error parsing command response:', error);
+            throw error;
+        }
+    }
+}
+
 // Clear startup identification
 console.log('🚀 ========================================');
 console.log('🚀 GALILEOSKY ENHANCED BACKEND (FIXED)');
@@ -71,16 +246,88 @@ let devices = new Map();
 // Connection to IMEI mapping for multi-device support
 const connectionToIMEI = new Map();
 
+// Device connection tracking for command sending
+const deviceConnections = new Map(); // IMEI -> socket mapping
+const commandPacketBuilder = new CommandPacketBuilder();
+const pendingCommands = new Map(); // commandNumber -> command info
+
 // Helper function to get IMEI from connection
 function getIMEIFromConnection(clientAddress) {
     return connectionToIMEI.get(clientAddress) || null;
 }
 
+// Function to send command to device
+async function sendCommandToDevice(imei, deviceNumber, commandText) {
+    try {
+        console.log(`🔧 Sending command to device: IMEI=${imei}, Device=${deviceNumber}, Command="${commandText}"`);
+        
+        // Check if device is connected
+        const deviceSocket = deviceConnections.get(imei);
+        if (!deviceSocket) {
+            throw new Error(`Device with IMEI ${imei} is not connected`);
+        }
+        
+        // Build command packet
+        const commandPacket = commandPacketBuilder.buildCommandPacket(imei, deviceNumber, commandText);
+        
+        // Store pending command
+        pendingCommands.set(commandPacket.commandNumber, {
+            imei: imei,
+            deviceNumber: deviceNumber,
+            commandText: commandText,
+            timestamp: new Date().toISOString(),
+            status: 'sent'
+        });
+        
+        // Send command packet to device
+        deviceSocket.write(commandPacket.packet);
+        
+        console.log(`✅ Command sent successfully: Command#${commandPacket.commandNumber}`);
+        
+        return {
+            success: true,
+            commandNumber: commandPacket.commandNumber,
+            message: 'Command sent successfully'
+        };
+        
+    } catch (error) {
+        console.error('❌ Error sending command:', error);
+        return {
+            success: false,
+            error: error.message
+        };
+    }
+}
+
+// Function to get connected devices
+function getConnectedDevices() {
+    const connectedDevices = [];
+    
+    for (const [imei, socket] of deviceConnections.entries()) {
+        const deviceInfo = devices.get(imei);
+        connectedDevices.push({
+            imei: imei,
+            deviceNumber: deviceInfo?.deviceNumber || 0,
+            lastSeen: deviceInfo?.lastSeen || new Date().toISOString(),
+            recordCount: deviceInfo?.recordCount || 0,
+            connected: true
+        });
+    }
+    
+    return connectedDevices;
+}
+
 // Helper function to update device tracking
-function updateDeviceTracking(imei, clientAddress, data) {
+function updateDeviceTracking(imei, clientAddress, data, socket = null) {
     // Map connection to IMEI
     if (clientAddress) {
         connectionToIMEI.set(clientAddress, imei);
+    }
+    
+    // Store socket connection for command sending
+    if (socket && imei) {
+        deviceConnections.set(imei, socket);
+        console.log(`🔧 Device connection stored for IMEI: ${imei}`);
     }
     
     console.log(`📱 updateDeviceTracking called with IMEI: ${imei}, clientAddress: ${clientAddress}`);
@@ -1082,7 +1329,7 @@ async function parsePacket(buffer) {
 }
 
 // Add parsed data to storage
-function addParsedData(data, clientAddress = null) {
+function addParsedData(data, clientAddress = null, socket = null) {
     try {
         // Get IMEI from connection mapping or data
         let imei = getIMEIFromConnection(clientAddress);
@@ -1211,7 +1458,7 @@ function addParsedData(data, clientAddress = null) {
                 parsedData.push(enhancedRecord);
                 
                 // Update device tracking
-                updateDeviceTracking(recordIMEI, clientAddress, enhancedRecord);
+                updateDeviceTracking(recordIMEI, clientAddress, enhancedRecord, socket);
                 
                 processedRecords++;
             }
@@ -1257,7 +1504,7 @@ function addParsedData(data, clientAddress = null) {
             parsedData.push(enhancedRecord);
             
             if (imei) {
-                updateDeviceTracking(imei, clientAddress, enhancedRecord);
+                updateDeviceTracking(imei, clientAddress, enhancedRecord, socket);
             }
         }
         
@@ -1396,8 +1643,32 @@ function handleConnection(socket) {
                         deviceId: parsedPacket.deviceId || 'unknown'
                     });
 
+                    // Check if this is a command response packet
+                    if (parsedPacket.header === 0x01 && parsedPacket.length > 50) {
+                        // This might be a command response, try to parse it
+                        try {
+                            const commandResponse = commandPacketBuilder.parseCommandResponse(packet);
+                            if (commandResponse.replyText) {
+                                console.log(`🔧 Command response received:`, commandResponse);
+                                
+                                // Update pending command status
+                                if (commandResponse.commandNumber && pendingCommands.has(commandResponse.commandNumber)) {
+                                    const pendingCommand = pendingCommands.get(commandResponse.commandNumber);
+                                    pendingCommand.status = 'completed';
+                                    pendingCommand.response = commandResponse.replyText;
+                                    pendingCommand.responseTime = new Date().toISOString();
+                                    
+                                    console.log(`✅ Command ${commandResponse.commandNumber} completed with response: ${commandResponse.replyText}`);
+                                }
+                            }
+                        } catch (error) {
+                            // Not a command response, continue with normal processing
+                            console.log('Not a command response, processing as normal data packet');
+                        }
+                    }
+
                     // Add to storage for frontend
-                    addParsedData(parsedPacket, clientAddress);
+                    addParsedData(parsedPacket, clientAddress, socket);
 
                 } catch (error) {
                     logger.error('Error processing packet:', {
@@ -1463,6 +1734,10 @@ function cleanupConnection(clientAddress) {
     if (imei) {
         console.log(`🔌 Device ${imei} disconnected from ${clientAddress}`);
         connectionToIMEI.delete(clientAddress);
+        
+        // Remove from device connections for command sending
+        deviceConnections.delete(imei);
+        console.log(`🔧 Device connection removed for IMEI: ${imei}`);
     }
 }
 
@@ -1740,6 +2015,123 @@ function handleAPIRequest(req, res) {
                 totalDevices: devices.size,
                 activeConnections: devices.size
             }));
+        } else if (pathname === '/api/command' && req.method === 'POST') {
+            // Send command to device
+            let body = '';
+            req.on('data', chunk => {
+                body += chunk.toString();
+            });
+            req.on('end', async () => {
+                try {
+                    const { imei, deviceNumber, commandText } = JSON.parse(body);
+                    
+                    if (!imei || !commandText) {
+                        res.writeHead(400);
+                        res.end(JSON.stringify({ success: false, error: 'IMEI and command text are required' }));
+                        return;
+                    }
+                    
+                    const result = await sendCommandToDevice(imei, deviceNumber || 0, commandText);
+                    res.writeHead(result.success ? 200 : 400);
+                    res.end(JSON.stringify(result));
+                } catch (error) {
+                    res.writeHead(400);
+                    res.end(JSON.stringify({ success: false, error: 'Invalid JSON data' }));
+                }
+            });
+            return;
+        } else if (pathname === '/api/command/status' && req.method === 'GET') {
+            // Get command status
+            const commandNumber = parseInt(parsedUrl.query.commandNumber);
+            if (commandNumber && pendingCommands.has(commandNumber)) {
+                const command = pendingCommands.get(commandNumber);
+                res.writeHead(200);
+                res.end(JSON.stringify({ success: true, command }));
+            } else {
+                res.writeHead(404);
+                res.end(JSON.stringify({ success: false, error: 'Command not found' }));
+            }
+        } else if (pathname === '/api/command/reset' && req.method === 'POST') {
+            // Reset device (quick command)
+            let body = '';
+            req.on('data', chunk => {
+                body += chunk.toString();
+            });
+            req.on('end', async () => {
+                try {
+                    const { imei, deviceNumber } = JSON.parse(body);
+                    
+                    if (!imei) {
+                        res.writeHead(400);
+                        res.end(JSON.stringify({ success: false, error: 'IMEI is required' }));
+                        return;
+                    }
+                    
+                    const result = await sendCommandToDevice(imei, deviceNumber || 0, 'reset');
+                    res.writeHead(result.success ? 200 : 400);
+                    res.end(JSON.stringify(result));
+                } catch (error) {
+                    res.writeHead(400);
+                    res.end(JSON.stringify({ success: false, error: 'Invalid JSON data' }));
+                }
+            });
+            return;
+        } else if (pathname === '/api/command/emergency-stop' && req.method === 'POST') {
+            // Emergency stop (quick command)
+            let body = '';
+            req.on('data', chunk => {
+                body += chunk.toString();
+            });
+            req.on('end', async () => {
+                try {
+                    const { imei, deviceNumber } = JSON.parse(body);
+                    
+                    if (!imei) {
+                        res.writeHead(400);
+                        res.end(JSON.stringify({ success: false, error: 'IMEI is required' }));
+                        return;
+                    }
+                    
+                    const result = await sendCommandToDevice(imei, deviceNumber || 0, 'emergency_stop');
+                    res.writeHead(result.success ? 200 : 400);
+                    res.end(JSON.stringify(result));
+                } catch (error) {
+                    res.writeHead(400);
+                    res.end(JSON.stringify({ success: false, error: 'Invalid JSON data' }));
+                }
+            });
+            return;
+        } else if (pathname === '/api/command/set-output' && req.method === 'POST') {
+            // Set output (quick command)
+            let body = '';
+            req.on('data', chunk => {
+                body += chunk.toString();
+            });
+            req.on('end', async () => {
+                try {
+                    const { imei, deviceNumber, outputNumber, value } = JSON.parse(body);
+                    
+                    if (!imei || outputNumber === undefined || value === undefined) {
+                        res.writeHead(400);
+                        res.end(JSON.stringify({ success: false, error: 'IMEI, output number, and value are required' }));
+                        return;
+                    }
+                    
+                    const commandText = `set_output ${outputNumber} ${value}`;
+                    const result = await sendCommandToDevice(imei, deviceNumber || 0, commandText);
+                    res.writeHead(result.success ? 200 : 400);
+                    res.end(JSON.stringify(result));
+                } catch (error) {
+                    res.writeHead(400);
+                    res.end(JSON.stringify({ success: false, error: 'Invalid JSON data' }));
+                }
+            });
+            return;
+        } else if (pathname === '/api/connected-devices' && req.method === 'GET') {
+            // Get list of connected devices
+            const connectedDevices = getConnectedDevices();
+            res.writeHead(200);
+            res.end(JSON.stringify({ success: true, devices: connectedDevices }));
         } else {
             res.writeHead(404);
             res.end(JSON.stringify({ error: 'API endpoint not found' }));
