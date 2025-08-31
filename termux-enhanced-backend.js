@@ -102,6 +102,15 @@ class CommandPacketBuilder {
                 packet.writeUInt16LE(checksum, offset);
                 
                 console.log(`🔧 Built command packet: IMEI=${imei}, Device=${deviceNumber}, Command="${commandText}", Length=${packetLength}, CRC=0x${checksum.toString(16).padStart(4, '0')}`);
+                console.log(`🔧 Command packet hex: ${packet.toString('hex').toUpperCase()}`);
+                console.log(`🔧 Command packet breakdown:`);
+                console.log(`   Header: 0x${packet.readUInt8(0).toString(16).padStart(2, '0').toUpperCase()}`);
+                console.log(`   Length: 0x${packet.readUInt16LE(1).toString(16).padStart(4, '0').toUpperCase()}`);
+                console.log(`   Tag 0x03 (IMEI): 0x${packet.readUInt8(3).toString(16).padStart(2, '0').toUpperCase()} ${packet.slice(4, 19).toString('hex').toUpperCase()}`);
+                console.log(`   Tag 0x04 (Device): 0x${packet.readUInt8(19).toString(16).padStart(2, '0').toUpperCase()} ${packet.readUInt16LE(20).toString(16).padStart(4, '0').toUpperCase()}`);
+                console.log(`   Tag 0xE0 (Cmd#): 0x${packet.readUInt8(22).toString(16).padStart(2, '0').toUpperCase()} ${packet.readUInt32LE(23).toString(16).padStart(8, '0').toUpperCase()}`);
+                console.log(`   Tag 0xE1 (Text): 0x${packet.readUInt8(27).toString(16).padStart(2, '0').toUpperCase()} ${packet.readUInt8(28).toString(16).padStart(2, '0').toUpperCase()} ${packet.slice(29, 29 + commandBuffer.length).toString('hex').toUpperCase()}`);
+                console.log(`   CRC: 0x${checksum.toString(16).padStart(4, '0').toUpperCase()}`);
                 
                 return {
                     packet: packet,
@@ -311,6 +320,7 @@ async function sendCommandToDevice(imei, deviceNumber, commandText) {
         });
         
         // Send command packet to device
+        console.log(`🔧 Sending command packet to device: ${commandPacket.hexString.toUpperCase()}`);
         deviceSocket.write(commandPacket.packet);
         
         console.log(`✅ Command sent successfully: Command#${commandPacket.commandNumber}`);
