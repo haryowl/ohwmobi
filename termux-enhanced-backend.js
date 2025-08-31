@@ -1667,8 +1667,25 @@ function handleConnection(socket) {
             if (unsentData.length > 0) {
                 buffer = Buffer.concat([unsentData, data]);
                 unsentData = Buffer.alloc(0);
+                console.log(`📦 Combined unsent data: ${buffer.length} bytes total`);
             } else {
                 buffer = data;
+            }
+            
+            // CRITICAL FIX: Check if we have multiple packets concatenated
+            // Look for multiple packet headers in the buffer
+            let packetHeaders = [];
+            for (let i = 0; i < buffer.length - 2; i++) {
+                const potentialHeader = buffer.readUInt8(i);
+                if (potentialHeader === 0x01 || potentialHeader === 0x15) {
+                    packetHeaders.push({ position: i, type: potentialHeader });
+                }
+            }
+            
+            if (packetHeaders.length > 1) {
+                console.log(`🚨 MULTIPLE PACKETS DETECTED: Found ${packetHeaders.length} packet headers at positions:`, 
+                    packetHeaders.map(h => `${h.position}(0x${h.type.toString(16)})`).join(', '));
+                console.log(`🚨 Full buffer: ${buffer.toString('hex').toUpperCase()}`);
             }
 
             let packetCount = 0;
@@ -1701,6 +1718,65 @@ function handleConnection(socket) {
                 // Check if we have a complete packet
                 if (buffer.length < totalLength + 2) {  // +2 for CRC
                     console.log(`📦 Incomplete packet: need ${totalLength + 2} bytes, have ${buffer.length} bytes`);
+                    
+                    // CRITICAL FIX: If we have multiple packet headers but incomplete first packet,
+                    // it might mean the length calculation is wrong due to packet concatenation
+                    if (packetHeaders.length > 1) {
+                        console.log(`🚨 SUSPICIOUS: Multiple headers but incomplete packet. Checking for packet boundary...`);
+                        
+                        // Look for the next packet header to find the real boundary
+                        for (let i = 1; i < packetHeaders.length; i++) {
+                            const nextHeaderPos = packetHeaders[i].position;
+                            const potentialPacket = buffer.slice(0, nextHeaderPos);
+                            
+                            if (potentialPacket.length >= 5) { // Minimum valid packet size
+                                const checkType = potentialPacket.readUInt8(0);
+                                const checkLength = potentialPacket.readUInt16LE(1) & 0x7FFF;
+                                const checkTotal = checkLength + 3 + 2; // HEAD + LENGTH + DATA + CRC
+                                
+                                if (potentialPacket.length === checkTotal) {
+                                    console.log(`🔧 FOUND REAL PACKET BOUNDARY: Using next header at position ${nextHeaderPos}`);
+                                    console.log(`🔧 Corrected packet: Type=0x${checkType.toString(16)}, Length=${checkLength}, Total=${checkTotal}`);
+                                    
+                                    // Extract the corrected packet
+                                    const correctedPacket = buffer.slice(0, checkTotal);
+                                    buffer = buffer.slice(checkTotal);
+                                    
+                                    // Process the corrected packet
+                                    const correctedPacketType = correctedPacket.readUInt8(0);
+                                    const correctedActualLength = checkLength;
+                                    
+                                    // Handle the corrected packet
+                                    if (correctedPacketType === 0x15 && correctedActualLength < 50) {
+                                        // Small ignorable packet
+                                        const packetChecksum = correctedPacket.readUInt16LE(correctedPacket.length - 2);
+                                        const confirmation = Buffer.from([0x02, packetChecksum & 0xFF, (packetChecksum >> 8) & 0xFF]);
+                                        socket.write(confirmation);
+                                        console.log(`✅ Processed corrected small 0x15 packet`);
+                                    } else if (correctedPacketType === 0x01 || (correctedPacketType === 0x15 && correctedActualLength >= 50)) {
+                                        // Main packet or large 0x15 packet
+                                        try {
+                                            const parsedPacket = await parsePacket(correctedPacket);
+                                            const packetChecksum = correctedPacket.readUInt16LE(correctedPacket.length - 2);
+                                            const confirmation = Buffer.from([0x02, packetChecksum & 0xFF, (packetChecksum >> 8) & 0xFF]);
+                                            socket.write(confirmation);
+                                            console.log(`✅ Processed corrected main packet: Type=0x${correctedPacketType.toString(16)}`);
+                                        } catch (error) {
+                                            console.error(`❌ Error processing corrected packet:`, error);
+                                            // Send confirmation anyway
+                                            const packetChecksum = correctedPacket.readUInt16LE(correctedPacket.length - 2);
+                                            const confirmation = Buffer.from([0x02, packetChecksum & 0xFF, (packetChecksum >> 8) & 0xFF]);
+                                            socket.write(confirmation);
+                                        }
+                                    }
+                                    
+                                    // Continue processing the remaining buffer
+                                    continue;
+                                }
+                            }
+                        }
+                    }
+                    
                     unsentData = Buffer.from(buffer);
                     break;
                 }
