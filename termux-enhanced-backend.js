@@ -2191,6 +2191,31 @@ function handleAPIRequest(req, res) {
             
             res.writeHead(200);
             res.end(JSON.stringify({ success: true, responses: responses }));
+        } else if (pathname === '/api/command/test' && req.method === 'GET') {
+            // Test command packet generation
+            const testIMEI = '861774058687730';
+            const testDeviceNumber = 0;
+            const testCommand = 'status';
+            
+            try {
+                const testPacket = commandPacketBuilder.buildCommandPacket(testIMEI, testDeviceNumber, testCommand);
+                
+                res.writeHead(200);
+                res.end(JSON.stringify({
+                    success: true,
+                    test: {
+                        imei: testIMEI,
+                        deviceNumber: testDeviceNumber,
+                        command: testCommand,
+                        hexPacket: testPacket.hexString.toUpperCase(),
+                        commandNumber: testPacket.commandNumber,
+                        expectedFormat: '01 20 00 03 38 36 38 32 30 34 30 30 35 36 34 37 38 33 38 04 00 00 E0 00 00 00 00 E1 06 73 74 61 74 75 73 50 22'
+                    }
+                }));
+            } catch (error) {
+                res.writeHead(500);
+                res.end(JSON.stringify({ success: false, error: error.message }));
+            }
         } else {
             res.writeHead(404);
             res.end(JSON.stringify({ error: 'API endpoint not found' }));
