@@ -1420,7 +1420,12 @@ function addParsedData(data, clientAddress = null, socket = null) {
             imei = data.deviceId;
         }
         
-        console.log(`📱 Got IMEI from connection mapping: ${imei}`);
+        console.log(`📱 IMEI EXTRACTION DEBUG:`, {
+            fromConnectionMapping: getIMEIFromConnection(clientAddress),
+            fromDataImei: data.imei,
+            fromDataDeviceId: data.deviceId,
+            finalImei: imei
+        });
         
         // If we have records to process
         if (data.records && Array.isArray(data.records)) {
@@ -1662,6 +1667,10 @@ function handleConnection(socket) {
                 hex: data.toString('hex').toUpperCase(),
                 length: data.length
             });
+            
+            // ENHANCED DEBUGGING: Log every data reception
+            console.log(`📥 DATA RECEIVED: ${data.length} bytes from ${clientAddress}`);
+            console.log(`📥 Raw hex: ${data.toString('hex').toUpperCase()}`);
 
             // Combine any unsent data with new data
             if (unsentData.length > 0) {
@@ -1706,6 +1715,9 @@ function handleConnection(socket) {
                     totalLength,
                     bufferLength: buffer.length
                 });
+                
+                // ENHANCED DEBUGGING: Log packet processing
+                console.log(`🔍 PROCESSING PACKET: Type=0x${packetType.toString(16)}, Length=${actualLength}, Total=${totalLength + 2}`);
 
                 // Safety check for reasonable packet length
                 if (actualLength > 10000) {
@@ -1888,6 +1900,15 @@ function handleConnection(socket) {
                     // Parse the packet
                     const parsedPacket = await parsePacket(packet);
                     
+                    // ENHANCED DEBUGGING: Log successful parsing
+                    console.log(`✅ PACKET PARSED SUCCESSFULLY:`, {
+                        header: `0x${parsedPacket.header.toString(16)}`,
+                        length: parsedPacket.length,
+                        deviceId: parsedPacket.deviceId || 'unknown',
+                        hasRecords: !!(parsedPacket.records && parsedPacket.records.length > 0),
+                        recordCount: parsedPacket.records ? parsedPacket.records.length : 0
+                    });
+                    
                     // Get the checksum from the received packet
                     const packetChecksum = packet.readUInt16LE(packet.length - 2);
                     const confirmation = Buffer.from([0x02, packetChecksum & 0xFF, (packetChecksum >> 8) & 0xFF]);
@@ -1934,6 +1955,12 @@ function handleConnection(socket) {
                     }
 
                     // Add to storage for frontend (main packets only)
+                    console.log(`📥 CALLING addParsedData with:`, {
+                        hasData: !!parsedPacket,
+                        hasRecords: !!(parsedPacket.records && parsedPacket.records.length > 0),
+                        clientAddress: clientAddress,
+                        hasSocket: !!socket
+                    });
                     addParsedData(parsedPacket, clientAddress, socket);
 
                 } catch (error) {
