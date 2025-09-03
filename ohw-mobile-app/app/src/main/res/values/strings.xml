@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">OHW Parser</string>
+    
+    <!-- Navigation -->
+    <string name="tracking">📍 Tracking</string>
+    <string name="tracking_history">📈 Tracking History</string>
+    <string name="sm_export">📋 SM EXPORT</string>
+    <string name="archive_status">📊 Archive Status</string>
+    <string name="device_management">📱 Device Management</string>
+    <string name="peer_sync">🔄 Peer Sync</string>
+    
+    <!-- Common -->
+    <string name="start">Start</string>
+    <string name="stop">Stop</string>
+    <string name="status">Status</string>
+    <string name="connected">Connected</string>
+    <string name="disconnected">Disconnected</string>
+    <string name="online">Online</string>
+    <string name="offline">Offline</string>
+    <string name="refresh">Refresh</string>
+    <string name="settings">Settings</string>
+    <string name="about">About</string>
+    
+    <!-- Server -->
+    <string name="server_status">Server Status</string>
+    <string name="server_running">Server Running</string>
+    <string name="server_stopped">Server Stopped</string>
+    <string name="start_server">Start Server</string>
+    <string name="stop_server">Stop Server</string>
+    <string name="server_port">Server Port</string>
+    <string name="tcp_port">TCP Port</string>
+    <string name="http_port">HTTP Port</string>
+    
+    <!-- Device -->
+    <string name="devices">Devices</string>
+    <string name="device_count">Device Count</string>
+    <string name="imei">IMEI</string>
+    <string name="last_seen">Last Seen</string>
+    <string name="total_records">Total Records</string>
+    <string name="device_status">Device Status</string>
+    
+    <!-- Tracking -->
+    <string name="latitude">Latitude</string>
+    <string name="longitude">Longitude</string>
+    <string name="speed">Speed</string>
+    <string name="direction">Direction</string>
+    <string name="satellites">Satellites</string>
+    <string name="battery">Battery</string>
+    <string name="voltage">Voltage</string>
+    
+    <!-- Commands -->
+    <string name="send_command">Send Command</string>
+    <string name="command_text">Command Text</string>
+    <string name="command_sent">Command Sent</string>
+    <string name="command_failed">Command Failed</string>
+    
+    <!-- Notifications -->
+    <string name="notification_channel_name">OHW Parser</string>
+    <string name="notification_channel_description">OHW Parser background service notifications</string>
+    <string name="server_running_notification">OHW Parser server is running</string>
+    
+    <!-- Errors -->
+    <string name="error_starting_server">Error starting server</string>
+    <string name="error_stopping_server">Error stopping server</string>
+    <string name="error_connecting">Error connecting to device</string>
+    <string name="error_parsing">Error parsing data</string>
+    
+    <!-- Success -->
+    <string name="server_started">Server started successfully</string>
+    <string name="server_stopped">Server stopped successfully</string>
+    <string name="command_sent_successfully">Command sent successfully</string>
+    
+</resources>
