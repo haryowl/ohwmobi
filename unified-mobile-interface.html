@@ -436,6 +436,86 @@
             border-radius: 4px;
         }
 
+        .archive-stats {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            border: 1px solid #e9ecef;
+        }
+
+        .archive-stat-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            margin: 10px 0;
+            background: #f8f9fa;
+            border-radius: 6px;
+            border-left: 4px solid #007bff;
+        }
+
+        .archive-stat-label {
+            font-weight: 600;
+            color: #2c3e50;
+            font-size: 0.9em;
+        }
+
+        .archive-stat-value {
+            font-weight: 700;
+            color: #007bff;
+            font-size: 1.1em;
+        }
+
+        .archive-stat-percentage {
+            background: #e3f2fd;
+            color: #1976d2;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8em;
+            font-weight: 600;
+        }
+
+        .archive-progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+
+        .archive-progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #28a745, #20c997);
+            transition: width 0.3s ease;
+        }
+
+        .scanning-status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 15px;
+            margin: 15px 0;
+            background: #fff3cd;
+            border-radius: 6px;
+            border-left: 4px solid #ffc107;
+        }
+
+        .scanning-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        .scanning-indicator.scanning {
+            background: #ffc107;
+        }
+
+        .scanning-indicator.finished {
+            background: #28a745;
+        }
+
         .data-table {
             background: white;
             border-radius: 8px;
@@ -621,6 +701,7 @@
             <button class="nav-tab" onclick="showTab('data-sm')">📊 Data SM</button>
             <button class="nav-tab" onclick="showTab('sm-export')">📋 SM EXPORT</button>
             <button class="nav-tab" onclick="showTab('device-commands')">🔧 Device Commands</button>
+            <button class="nav-tab" onclick="showTab('archive-status')">📊 Archive Status</button>
             <button class="nav-tab" onclick="showTab('device-management')">📱 Device Management</button>
             <button class="nav-tab" onclick="showTab('peer-sync')">🔄 Peer Sync</button>
             <button class="nav-tab" onclick="showTab('data-management')">📊 Data Management</button>
@@ -1131,6 +1212,52 @@
             </div>
             <div id="commandResponses" class="data-table">
                 <div class="no-data">No command responses yet. Send a command to see responses here.</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Archive Status Tab -->
+    <div id="archive-status" class="tab-content">
+        <div class="section">
+            <h3>📊 Archive Status</h3>
+            <div class="controls">
+                <button class="btn btn-primary" onclick="loadArchiveStatus()">🔄 Refresh Devices</button>
+                <button class="btn btn-success" onclick="sendArchiveStatusCommand()">📊 Get Archive Status</button>
+                <button class="btn btn-warning" onclick="clearArchiveStatusLog()">🗑️ Clear Log</button>
+            </div>
+        </div>
+
+        <div class="section">
+            <h3>📱 Connected Devices</h3>
+            <div id="archiveStatusDevicesList" class="data-table">
+                <div class="no-data">Loading connected devices...</div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h3>📊 Archive Status Command</h3>
+            <div class="input-group">
+                <label for="archiveStatusDevice">Select Device:</label>
+                <select id="archiveStatusDevice" class="form-control" onchange="selectDeviceForArchiveStatus()">
+                    <option value="">Choose a device...</option>
+                </select>
+            </div>
+            <div class="controls">
+                <button class="btn btn-primary" onclick="sendArchiveStatusCommand()">🚀 Send ARCHIVESTAT</button>
+            </div>
+        </div>
+
+        <div class="section">
+            <h3>📈 Archive Statistics</h3>
+            <div id="archiveStatistics" class="archive-stats">
+                <div class="no-data">Send ARCHIVESTAT command to see statistics</div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h3>📋 Archive Status Log</h3>
+            <div id="archiveStatusLog" class="log">
+                <div class="log-entry info">Archive status system initialized...</div>
             </div>
         </div>
     </div>
@@ -3876,6 +4003,231 @@
                 html += `<div class="log-entry ${entry.type}">[${entry.timestamp}] ${entry.message}</div>`;
             });
             container.innerHTML = html;
+        }
+
+        // Archive Status Functions
+        async function loadArchiveStatus() {
+            try {
+                log('info', 'Loading archive status...', 'archiveStatusLog');
+                await loadArchiveStatusDevices();
+                log('success', 'Archive status loaded successfully', 'archiveStatusLog');
+            } catch (error) {
+                log('error', `Error loading archive status: ${error.message}`, 'archiveStatusLog');
+            }
+        }
+
+        async function loadArchiveStatusDevices() {
+            try {
+                console.log('📊 Frontend: Loading connected devices for archive status...');
+                
+                const response = await fetch('/api/connected-devices');
+                const result = await response.json();
+                
+                if (!result.success) {
+                    throw new Error(result.error || 'Failed to load connected devices');
+                }
+                
+                const devices = result.devices || [];
+                const container = document.getElementById('archiveStatusDevicesList');
+                const archiveStatusDeviceSelect = document.getElementById('archiveStatusDevice');
+                
+                // Update connected devices list
+                if (devices.length === 0) {
+                    container.innerHTML = '<div class="no-data">No devices currently connected</div>';
+                    archiveStatusDeviceSelect.innerHTML = '<option value="">No devices available</option>';
+                } else {
+                    let html = '<table class="data-table"><thead><tr><th>IMEI</th><th>Device Number</th><th>Last Seen</th><th>Record Count</th><th>Status</th></tr></thead><tbody>';
+                    
+                    devices.forEach(device => {
+                        const lastSeen = new Date(device.lastSeen).toLocaleString();
+                        const statusClass = device.connected ? 'connected' : 'recently-seen';
+                        const statusText = device.connected ? 'Connected' : `Recently Seen (${device.lastSeenMinutes || 0}m ago)`;
+                        html += `
+                            <tr>
+                                <td>${device.imei}</td>
+                                <td>${device.deviceNumber}</td>
+                                <td>${lastSeen}</td>
+                                <td>${device.recordCount}</td>
+                                <td><span class="status ${statusClass}">${statusText}</span></td>
+                            </tr>
+                        `;
+                    });
+                    
+                    html += '</tbody></table>';
+                    container.innerHTML = html;
+                    
+                    // Update archive status device select
+                    archiveStatusDeviceSelect.innerHTML = '<option value="">Choose a device...</option>';
+                    devices.forEach(device => {
+                        archiveStatusDeviceSelect.innerHTML += `<option value="${device.imei}">${device.imei} (Device ${device.deviceNumber})</option>`;
+                    });
+                }
+                
+                log('success', `Loaded ${devices.length} connected devices for archive status`, 'archiveStatusLog');
+            } catch (error) {
+                log('error', `Error loading archive status devices: ${error.message}`, 'archiveStatusLog');
+            }
+        }
+
+        function selectDeviceForArchiveStatus() {
+            const deviceSelect = document.getElementById('archiveStatusDevice');
+            const selectedDevice = deviceSelect.value;
+            
+            if (selectedDevice) {
+                log('info', `Selected device for archive status: ${selectedDevice}`, 'archiveStatusLog');
+            }
+        }
+
+        async function sendArchiveStatusCommand() {
+            const imei = document.getElementById('archiveStatusDevice').value;
+            
+            if (!imei) {
+                log('error', 'Please select a device', 'archiveStatusLog');
+                return;
+            }
+            
+            try {
+                log('info', `Sending ARCHIVESTAT command to ${imei}`, 'archiveStatusLog');
+                
+                const response = await fetch('/api/command', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        imei: imei,
+                        commandText: 'ARCHIVESTAT',
+                        deviceNumber: 50
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    log('success', `ARCHIVESTAT command sent successfully to ${imei}`, 'archiveStatusLog');
+                    log('info', `Command number: ${result.commandNumber}`, 'archiveStatusLog');
+                    
+                    // Start polling for response
+                    pollArchiveStatusResponse(result.commandNumber, imei);
+                } else {
+                    log('error', `Failed to send ARCHIVESTAT command: ${result.error}`, 'archiveStatusLog');
+                }
+            } catch (error) {
+                log('error', `Error sending ARCHIVESTAT command: ${error.message}`, 'archiveStatusLog');
+            }
+        }
+
+        async function pollArchiveStatusResponse(commandNumber, imei) {
+            let attempts = 0;
+            const maxAttempts = 30; // 30 seconds
+            
+            const pollInterval = setInterval(async () => {
+                attempts++;
+                
+                try {
+                    const response = await fetch('/api/command/responses');
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        const commandResponse = result.responses.find(r => r.commandNumber === commandNumber);
+                        
+                        if (commandResponse && commandResponse.status === 'completed' && commandResponse.response) {
+                            clearInterval(pollInterval);
+                            log('success', `Archive status response received: ${commandResponse.response}`, 'archiveStatusLog');
+                            
+                            // Parse and display the response
+                            parseAndDisplayArchiveStatus(commandResponse.response, imei);
+                        } else if (attempts >= maxAttempts) {
+                            clearInterval(pollInterval);
+                            log('warning', 'Archive status response timeout', 'archiveStatusLog');
+                        }
+                    }
+                } catch (error) {
+                    log('error', `Error polling archive status response: ${error.message}`, 'archiveStatusLog');
+                    if (attempts >= maxAttempts) {
+                        clearInterval(pollInterval);
+                    }
+                }
+            }, 1000);
+        }
+
+        function parseAndDisplayArchiveStatus(response, imei) {
+            try {
+                // Parse response: "1,2600,2543,2530"
+                const parts = response.split(',');
+                
+                if (parts.length !== 4) {
+                    throw new Error(`Invalid response format: ${response}`);
+                }
+                
+                const scanningStatus = parseInt(parts[0]); // 1 = finished, 0 = scanning
+                const totalRecords = parseInt(parts[1]);
+                const sentToServer1 = parseInt(parts[2]);
+                const sentToServer2 = parseInt(parts[3]);
+                
+                // Calculate statistics
+                const remainingS1 = totalRecords - sentToServer1;
+                const remainingS2 = totalRecords - sentToServer2;
+                const deliveredS1Percent = ((sentToServer1 / totalRecords) * 100).toFixed(2);
+                const deliveredS2Percent = ((sentToServer2 / totalRecords) * 100).toFixed(2);
+                
+                // Display statistics
+                const container = document.getElementById('archiveStatistics');
+                container.innerHTML = `
+                    <div class="scanning-status">
+                        <div class="scanning-indicator ${scanningStatus === 1 ? 'finished' : 'scanning'}"></div>
+                        <div>
+                            <strong>Scanning Status:</strong> ${scanningStatus === 1 ? 'Finished' : 'Still Scanning'}
+                        </div>
+                    </div>
+                    
+                    <div class="archive-stat-item">
+                        <div class="archive-stat-label">Total Records in Device</div>
+                        <div class="archive-stat-value">${totalRecords.toLocaleString()}</div>
+                    </div>
+                    
+                    <div class="archive-stat-item">
+                        <div class="archive-stat-label">Records Sent to Server 1</div>
+                        <div class="archive-stat-value">${sentToServer1.toLocaleString()}</div>
+                        <div class="archive-stat-percentage">${deliveredS1Percent}%</div>
+                    </div>
+                    
+                    <div class="archive-progress-bar">
+                        <div class="archive-progress-fill" style="width: ${deliveredS1Percent}%"></div>
+                    </div>
+                    
+                    <div class="archive-stat-item">
+                        <div class="archive-stat-label">Remaining Data for Server 1</div>
+                        <div class="archive-stat-value">${remainingS1.toLocaleString()}</div>
+                    </div>
+                    
+                    <div class="archive-stat-item">
+                        <div class="archive-stat-label">Records Sent to Server 2</div>
+                        <div class="archive-stat-value">${sentToServer2.toLocaleString()}</div>
+                        <div class="archive-stat-percentage">${deliveredS2Percent}%</div>
+                    </div>
+                    
+                    <div class="archive-progress-bar">
+                        <div class="archive-progress-fill" style="width: ${deliveredS2Percent}%"></div>
+                    </div>
+                    
+                    <div class="archive-stat-item">
+                        <div class="archive-stat-label">Remaining Data for Server 2</div>
+                        <div class="archive-stat-value">${remainingS2.toLocaleString()}</div>
+                    </div>
+                `;
+                
+                log('success', `Archive status displayed for device ${imei}`, 'archiveStatusLog');
+                log('info', `Total: ${totalRecords}, S1: ${sentToServer1} (${deliveredS1Percent}%), S2: ${sentToServer2} (${deliveredS2Percent}%)`, 'archiveStatusLog');
+                
+            } catch (error) {
+                log('error', `Error parsing archive status: ${error.message}`, 'archiveStatusLog');
+                document.getElementById('archiveStatistics').innerHTML = '<div class="no-data">Error parsing archive status response</div>';
+            }
+        }
+
+        function clearArchiveStatusLog() {
+            document.getElementById('archiveStatusLog').innerHTML = '<div class="log-entry info">Archive status log cleared...</div>';
         }
 
         // Device Commands Functions
