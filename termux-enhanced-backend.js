@@ -2421,6 +2421,12 @@ function handleAPIRequest(req, res) {
             console.log(`🔧 Request headers:`, req.headers);
             console.log(`🔧 Request URL:`, req.url);
             
+            // Debug: Check current state
+            console.log(`🔧 DEBUG: devices map size: ${devices.size}`);
+            console.log(`🔧 DEBUG: deviceConnections size: ${deviceConnections.size}`);
+            console.log(`🔧 DEBUG: devices entries:`, Array.from(devices.entries()));
+            console.log(`🔧 DEBUG: deviceConnections entries:`, Array.from(deviceConnections.entries()));
+            
             const connectedDevices = getConnectedDevices();
             console.log(`🔧 API returning ${connectedDevices.length} devices:`, connectedDevices);
             
@@ -2681,4 +2687,40 @@ peerSync.startPeerServer(parsedData, devices, lastIMEI);
 
 // Start servers
 startTCPServer();
-startHTTPServer(); 
+startHTTPServer();
+
+// Add test device for debugging DEVICE COMMAND menu
+function addTestDevice() {
+    const testIMEI = 'TEST_DEVICE_001';
+    const testSocket = {
+        writable: true,
+        write: (data) => console.log(`📤 Test device would send: ${data.toString('hex')}`),
+        remoteAddress: '127.0.0.1',
+        remotePort: 9999
+    };
+    
+    // Add to devices map
+    devices.set(testIMEI, {
+        firstSeen: new Date().toISOString(),
+        lastSeen: new Date().toISOString(),
+        recordCount: 5,
+        totalRecords: 5,
+        deviceNumber: 50,
+        clientAddress: '127.0.0.1:9999',
+        lastLocation: {
+            latitude: 37.7749,
+            longitude: -122.4194,
+            timestamp: new Date().toISOString()
+        }
+    });
+    
+    // Add to deviceConnections map
+    deviceConnections.set(testIMEI, testSocket);
+    
+    console.log(`🧪 Test device added: ${testIMEI}`);
+    console.log(`🧪 devices map size: ${devices.size}`);
+    console.log(`🧪 deviceConnections size: ${deviceConnections.size}`);
+}
+
+// Call this function when server starts
+addTestDevice(); 
