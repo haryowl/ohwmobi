@@ -2571,6 +2571,17 @@ function startHTTPServer() {
             return;
         }
         
+        // Special handling for simple unified interface
+        if (pathname === '/simple' || pathname === '/simple-unified' || pathname === '/simple-unified-interface.html') {
+            filePath = './simple-unified-interface.html';
+            console.log('📱 Served simple unified interface');
+            console.log('📱 File path:', filePath);
+            console.log('📱 Request pathname:', pathname);
+            console.log('📱 File exists:', fs.existsSync(filePath));
+            serveStaticFile(req, res, filePath);
+            return;
+        }
+        
         // Security: prevent directory traversal
         if (filePath.includes('..')) {
             res.writeHead(403);
@@ -2618,6 +2629,7 @@ function startHTTPServer() {
         logger.info(`Socket.IO available at: http://${ipAddress}:${config.httpPort}`);
         logger.info(`Mobile Peer Sync UI: http://${ipAddress}:${config.httpPort}/mobile-peer-sync-ui.html`);
         logger.info(`Unified Mobile Interface: http://${ipAddress}:${config.httpPort}/unified`);
+        logger.info(`Simple Unified Interface: http://${ipAddress}:${config.httpPort}/simple`);
         
         // Display server information
         console.log('');
@@ -2626,6 +2638,7 @@ function startHTTPServer() {
         console.log(`📱 Mobile Interface: http://${ipAddress}:${config.httpPort}`);
         console.log(`🌐 Peer Sync Interface: http://${ipAddress}:${config.httpPort}/mobile-peer-sync-ui.html`);
         console.log(`🎯 Unified Interface: http://${ipAddress}:${config.httpPort}/unified`);
+        console.log(`🎯 Simple Interface: http://${ipAddress}:${config.httpPort}/simple`);
         console.log(`📡 TCP Server: ${ipAddress}:${config.tcpPort}`);
         console.log(`💾 Data Directory: ${dataDir}`);
         console.log(`📋 Logs Directory: ${logsDir}`);
