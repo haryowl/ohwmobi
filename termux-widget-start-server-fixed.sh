@@ -96,3 +96,6 @@ if [ -f ~/ohw-server.pid ]; then
 else
     echo "❌ Server failed to start (no PID file)"
 fi
+
+
+

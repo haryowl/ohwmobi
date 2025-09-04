@@ -275,9 +275,9 @@ read -p "Do you want to setup Termux widgets? (y/n): " -n 1 -r
 echo
 if [[ $REPLY =~ ^[Yy]$ ]]; then
     print_info "Setting up Termux widgets..."
-    if [ -f "setup-widgets-fixed.sh" ]; then
-        chmod +x setup-widgets-fixed.sh
-        ./setup-widgets-fixed.sh
+    if [ -f "setup-widgets-working.sh" ]; then
+        chmod +x setup-widgets-working.sh
+        ./setup-widgets-working.sh
         print_success "Termux widgets configured!"
         echo ""
         echo "📱 Widget Setup Complete!"
@@ -290,8 +290,8 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
     fi
 else
     print_info "Skipping widget setup. You can run it later with:"
-    echo "  chmod +x setup-widgets-fixed.sh"
-    echo "  ./setup-widgets-fixed.sh"
+    echo "  chmod +x setup-widgets-working.sh"
+    echo "  ./setup-widgets-working.sh"
 fi
 
 # Final instructions
