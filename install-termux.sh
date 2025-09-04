@@ -268,6 +268,32 @@ chmod +x ~/ohw-*.sh
 
 print_success "Management scripts created"
 
+# Optional: Setup Termux widgets
+echo ""
+print_info "🎯 Optional: Setting up Termux widgets for easy management..."
+read -p "Do you want to setup Termux widgets? (y/n): " -n 1 -r
+echo
+if [[ $REPLY =~ ^[Yy]$ ]]; then
+    print_info "Setting up Termux widgets..."
+    if [ -f "setup-widgets-fixed.sh" ]; then
+        chmod +x setup-widgets-fixed.sh
+        ./setup-widgets-fixed.sh
+        print_success "Termux widgets configured!"
+        echo ""
+        echo "📱 Widget Setup Complete!"
+        echo "1. Install 'Termux:Widget' from Google Play Store"
+        echo "2. Add widgets to your home screen"
+        echo "3. Use widgets to manage your server"
+        echo ""
+    else
+        print_warning "Widget setup script not found, skipping..."
+    fi
+else
+    print_info "Skipping widget setup. You can run it later with:"
+    echo "  chmod +x setup-widgets-fixed.sh"
+    echo "  ./setup-widgets-fixed.sh"
+fi
+
 # Final instructions
 echo ""
 print_success "🎉 Installation Complete!"

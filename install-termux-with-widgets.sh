@@ -93,8 +93,8 @@ print_status "Dependencies installed"
 # Step 6: Setup Termux widgets
 echo ""
 print_step "Step 6: Setting up Termux widgets..."
-chmod +x setup-termux-widgets.sh
-./setup-termux-widgets.sh
+chmod +x setup-widgets-fixed.sh
+./setup-widgets-fixed.sh
 print_status "Termux widgets configured"
 
 # Step 7: Create startup scripts
@@ -316,3 +316,5 @@ echo "  ~/.shortcuts/README-WIDGETS.md"
 echo ""
 print_info "Installation completed successfully!"
 print_info "Your OHW Mobile Parser is ready to use!"
+
+
