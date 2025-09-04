@@ -237,7 +237,7 @@ print_info "Available widgets:"
 ls -la ~/.shortcuts/ohw-*.sh
 
 echo ""
-print_success "🎉 Widget setup complete!"
+print_status "🎉 Widget setup complete!"
 echo ""
 print_info "📱 Next steps:"
 echo "1. Install 'Termux:Widget' from Google Play Store"
